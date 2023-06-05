@@ -3,7 +3,7 @@
 #include <vector>
 #include <sstream>
 #include <algorithm>
-#include <iomanip>
+#include <regex>
 #include "../inc/assembler.hpp"
 #include "../inc/section.hpp"
 
@@ -12,6 +12,7 @@ Assembler::Assembler() {
     currentLocation = 0;
     currentSection = 0;
     pass = FIRST;
+    sections.push_back(new Section("UND"));
 }
 
 Assembler::~Assembler(){
@@ -97,8 +98,9 @@ void Assembler::checkDirective(std::string line, Pass pass) {
             if(symbolExists(temp) == -1) 
                 addSymbolToTable(temp, currentLocation, currentSection, LOC, true);
         } else if(directive == ".word") {
-            for(int i = 0; i < symbols.size(); i++)
+            for(int i = 0; i < symbols.size(); i++) {
                 currentLocation += 4;
+            }
         } else if(directive == ".skip") {
             currentLocation += std::stoi(temp);
         } else if(directive == ".end") {
@@ -139,7 +141,24 @@ void Assembler::checkDirective(std::string line, Pass pass) {
             relocationTables.push_back(new RelocationTable(symbols[0]));
             sections.push_back(new Section(symbols[0]));
         } else if(directive == ".word") {
-            
+            for(int i = 0; i < symbols.size(); i++) {
+                if(isNumber(symbols[i])) {
+                    if(literalTooBig(symbols[i])) {
+                        std::cout << "ERROR: LITERAL TOO BIG!" << std::endl;
+                        exit(0);
+                    }
+                    if(isHex(symbols[i])) {
+                        appendZeroToHex(symbols[i]);
+                        sections[currentSection]->addFourBytes(symbols[i]);
+                    } else {
+
+                    }
+
+
+                } else {
+                    
+                }
+            }
         } else if(directive == ".skip") {
             
         } else if(directive == ".end") {
@@ -205,6 +224,27 @@ void Assembler::printSymbolTable() {
     std::cout << "\n";
 }
 
+bool Assembler::isNumber(std::string s) {
+    return !std::regex_match(s, std::regex("^[A-Za-z]+$"));
+}
+
+bool Assembler::literalTooBig(std::string num) {
+    if (num.find('x') != std::string::npos) { 
+        return num.length() >= 6;
+    } else {
+        return std::stoi(num) >= 4096;
+    }
+}
+
+bool Assembler::isHex(std::string num) {
+    return num.find('x') != std::string::npos;
+}
+
+void Assembler::appendZeroToHex(std::string &num) {
+    if(num.length() < 5) {
+        num.insert (2, 10 - num.length() , '0');
+    } 
+}
 
 
 

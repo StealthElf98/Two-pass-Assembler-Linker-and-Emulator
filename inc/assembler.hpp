@@ -36,6 +36,10 @@ private:
     int symbolExists(std::string symbolName);
     void addSymbolToTable(std::string symbolName, int lc, int section, Bind bind, bool isSection);
     void printSymbolTable();
+    bool isNumber(std::string s);
+    bool literalTooBig(std::string num);
+    bool isHex(std::string num);
+    void appendZeroToHex(std::string &num);
 public:
     void assemble(std::vector<std::string>& allLines);
     Assembler();

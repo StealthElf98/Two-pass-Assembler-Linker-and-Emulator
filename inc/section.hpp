@@ -3,13 +3,16 @@
 
 #include <string>
 #include <vector>
+#include "../inc/instruction.hpp"
 
 class Section {
 private:
     std::string name;
-    std::vector<int> *addr;  
+    std::vector<Instruction* > addr;  
 public:
     Section(std::string name);
+    void addFourBytes(std::string instr);
+    std::string getName();
     ~Section();
 };
 

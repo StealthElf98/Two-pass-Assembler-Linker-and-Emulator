@@ -42,6 +42,18 @@
         "ctime": "cpp",
         "iomanip": "cpp",
         "xlocmon": "cpp",
-        "xloctime": "cpp"
+        "xloctime": "cpp",
+        "cctype": "cpp",
+        "functional": "cpp",
+        "list": "cpp",
+        "locale": "cpp",
+        "memory": "cpp",
+        "regex": "cpp",
+        "tuple": "cpp",
+        "unordered_map": "cpp",
+        "xfunctional": "cpp",
+        "xhash": "cpp",
+        "xlocbuf": "cpp",
+        "xlocmes": "cpp"
     }
 }
