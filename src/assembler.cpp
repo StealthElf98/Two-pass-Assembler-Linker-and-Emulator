@@ -23,6 +23,8 @@ void Assembler::assemble(std::vector<std::string>& allLines) {
     firstPass(allLines);
     secondPass(allLines);
     printSymbolTable();
+    for(int i = 1; i < sections.size(); i++)
+        sections[i]->printSection();
 }
 
 void Assembler::firstPass(std::vector<std::string>& allLines) {
@@ -34,7 +36,6 @@ void Assembler::firstPass(std::vector<std::string>& allLines) {
 }
 
 void Assembler::secondPass(std::vector<std::string>& allLines) {
-    std::cout << "DRUGI PROLAZ "<< std::endl;
      for(int i = 0; i < allLines.size(); i++) {
         if(!allLines[i].empty()) {
             checkLine(allLines[i], SECOND);
@@ -151,16 +152,20 @@ void Assembler::checkDirective(std::string line, Pass pass) {
                         appendZeroToHex(symbols[i]);
                         sections[currentSection]->addFourBytes(symbols[i]);
                     } else {
-
+                        std::stringstream s;
+                        s << "0x";
+                        s << std::hex << std::stoi(symbols[i]);
+                        std::string temp;
+                        s >> temp;
+                        appendZeroToHex(temp);
+                        sections[currentSection]->addFourBytes(temp);
                     }
-
-
                 } else {
-                    
+                    //TO DO .word SYMBOL
                 }
             }
         } else if(directive == ".skip") {
-            
+            sections[currentSection]->skip(std::stoi(symbols[0]));
         } else if(directive == ".end") {
            
         } else {
