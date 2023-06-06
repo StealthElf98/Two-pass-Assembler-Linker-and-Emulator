@@ -12,6 +12,7 @@ Assembler::Assembler() {
     currentLocation = 0;
     currentSection = 0;
     pass = FIRST;
+    stopAssembling = false;
     sections.push_back(new Section("UND"));
 }
 
@@ -29,15 +30,16 @@ void Assembler::assemble(std::vector<std::string>& allLines) {
 
 void Assembler::firstPass(std::vector<std::string>& allLines) {
     for(int i = 0; i < allLines.size(); i++) {
-        if(!allLines[i].empty()) {
+        if(!allLines[i].empty() && !stopAssembling) {
             checkLine(allLines[i], FIRST);
         }
     }
 }
 
 void Assembler::secondPass(std::vector<std::string>& allLines) {
-     for(int i = 0; i < allLines.size(); i++) {
-        if(!allLines[i].empty()) {
+    stopAssembling = false;
+    for(int i = 0; i < allLines.size(); i++) {
+        if(!allLines[i].empty() && !stopAssembling) {
             checkLine(allLines[i], SECOND);
         }
     }
@@ -108,6 +110,7 @@ void Assembler::checkDirective(std::string line, Pass pass) {
             currentLocation = 0;
             currentSection = 0;
             pass = SECOND;
+            stopAssembling = true;
         } else {
             if(directive != ".global")
                 std::cout << "ERROR: Directive not found!" << std::endl;
@@ -148,6 +151,7 @@ void Assembler::checkDirective(std::string line, Pass pass) {
                         std::cout << "ERROR: LITERAL TOO BIG!" << std::endl;
                         exit(0);
                     }
+                
                     if(isHex(symbols[i])) {
                         appendZeroToHex(symbols[i]);
                         sections[currentSection]->addFourBytes(symbols[i]);
@@ -161,13 +165,22 @@ void Assembler::checkDirective(std::string line, Pass pass) {
                         sections[currentSection]->addFourBytes(temp);
                     }
                 } else {
-                    //TO DO .word SYMBOL
+                    int index = symbolExists(symbols[i]); 
+                    if(index == -1) {
+                        sections[currentSection]->skip(4);
+                        //DODATI SIMBOL U RELOKACIONU TABELU
+                    } else {
+                        std::string val = std::to_string(symTable[index]->getValue());
+                        val = "0x" + val;
+                        appendZeroToHex(val);
+                        sections[currentSection]->addFourBytes(val);
+                    }
                 }
             }
         } else if(directive == ".skip") {
             sections[currentSection]->skip(std::stoi(symbols[0]));
         } else if(directive == ".end") {
-           
+            stopAssembling = true;
         } else {
             std::cout << "ERROR: Directive not found!" << std::endl;
         }
@@ -178,7 +191,76 @@ void Assembler::checkInstruction(std::string line, Pass pass) {
     if(pass == FIRST) {
         currentLocation += 4;
     } else {
+        std::string instruction;
+        std::vector<std::string> params;
+        std::string temp;
+        line.erase(remove(line.begin(), line.end(), ','), line.end());
+        std::stringstream ssin(line);
+        ssin >> instruction;
+        ssin >> temp;
+        params.push_back(temp);
+        while(ssin >> temp) {
+            params.push_back(temp);
+        }
 
+        if(instruction == "halt") {
+            sections[currentSection]->skip(4);
+            stopAssembling = true;
+        } else if(instruction == "int") {
+            std::string temp = "10000000";
+            sections[currentSection]->addFourBytes(temp);
+        } else if(instruction == "iret") {
+
+        } else if(instruction == "call") {
+
+        } else if(instruction == "ret") {
+            
+        } else if(instruction == "jmp") {
+            
+        } else if(instruction == "beq") {
+            
+        } else if(instruction == "bne") {
+            
+        } else if(instruction == "bgt") {
+            
+        } else if(instruction == "push") {
+            
+        } else if(instruction == "pop") {
+            
+        } else if(instruction == "xchg") {
+            
+        } else if(instruction == "add") {
+            
+        } else if(instruction == "sub") {
+            
+        } else if(instruction == "mul") {
+            
+        } else if(instruction == "div") {
+            
+        } else if(instruction == "not") { 
+            
+        } else if(instruction == "and") {
+            
+        } else if(instruction == "or") {
+            
+        } else if(instruction == "xor") {
+            
+        } else if(instruction == "shl") {
+            
+        } else if(instruction == "shr") {
+            
+        } else if(instruction == "ld") {
+            
+        } else if(instruction == "st") {
+            
+        } else if(instruction == "csrrd") {
+            
+        } else if(instruction == "csrwr") {
+            
+        } else {
+            
+        }
+        currentLocation += 4;
     }
 }
 
@@ -230,6 +312,10 @@ void Assembler::printSymbolTable() {
 }
 
 bool Assembler::isNumber(std::string s) {
+    s.erase(std::remove(s.begin(), s.end(), '_'), s.end());
+    s.erase(std::remove(s.begin(), s.end(), '-'), s.end());
+    // bool res = !std::regex_match(s, std::regex("^[A-Za-z]+$"));
+    // std::cout << s + ": " + (res ? "TRUE" : "FALSE") << std::endl;
     return !std::regex_match(s, std::regex("^[A-Za-z]+$"));
 }
 
@@ -242,7 +328,7 @@ bool Assembler::literalTooBig(std::string num) {
 }
 
 bool Assembler::isHex(std::string num) {
-    return num.find('x') != std::string::npos;
+    return num.find("0x") != std::string::npos;
 }
 
 void Assembler::appendZeroToHex(std::string &num) {

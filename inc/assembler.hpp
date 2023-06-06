@@ -26,6 +26,7 @@ private:
     std::vector<RelocationTable*> relocationTables;
     std::vector<Section*> sections;
     Pass pass;
+    bool stopAssembling;
     int currentLocation;
     int currentSection;
     void firstPass(std::vector<std::string>& allLines);

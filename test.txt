@@ -1,6 +1,7 @@
 .extern my_counter, my_stagod, myNesto
 .global handler, globSimbol
 .section my_code_handler
+.skip 8
 handler:
     push %r1
     push %r2
@@ -10,7 +11,7 @@ handler:
     ld $3, %r2
     beq %r1, %r2, my_isr_terminal
 .word nesto
-.skip 16
+.skip 5
 # obrada prekida od tajmera
 .section sekcija2
 my_isr_timer:
@@ -21,10 +22,12 @@ my_isr_terminal:
     ld $1, %r2
     add %r2, %r1
     st %r1, my_counter
-.word simbol, 4, 12, 0xF
+.word 4, 12, my_isr_terminal, 0xF
 .skip 5
 finish:
     pop %r2
     pop %r1
     iret
 .end
+.section sekcijaEND
+.word 4
