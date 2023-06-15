@@ -8,13 +8,16 @@
 class Section {
 private:
     std::string name;
-    std::vector<std::string> addr;  
+    std::vector<std::string> addr;
+    std::vector<std::string> pool;  
 public:
     Section(std::string name);
     void addFourBytes(std::string instr);
     void skip(int numOfBytes);
     std::string getName();
     void printSection();
+    void addOC(std::string oc);
+    void addThreeBytes(std::string opr);
     ~Section();
 };
 

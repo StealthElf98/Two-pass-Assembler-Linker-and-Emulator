@@ -41,6 +41,7 @@ private:
     bool literalTooBig(std::string num);
     bool isHex(std::string num);
     void appendZeroToHex(std::string &num);
+    std::string getRegisterNumber(std::string reg);
 public:
     void assemble(std::vector<std::string>& allLines);
     Assembler();

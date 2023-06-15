@@ -10,7 +10,7 @@ Parser::Parser(std::string inputFile) {
 
     while (std::getline(myfile, line))
         ++numOfLines;
-    
+
     parse(inputFile);
 }
 
@@ -31,6 +31,8 @@ void Parser::parse(std::string inputFile) {
     std::string str; 
     int i = 0;
 
-    while (std::getline(file, str))
-        allLines.push_back(str.substr(str.find_first_not_of(" \t")));
+    while (std::getline(file, str)) {
+        if(!str.empty())
+            allLines.push_back(str.substr(str.find_first_not_of(" ")));
+    }
 }

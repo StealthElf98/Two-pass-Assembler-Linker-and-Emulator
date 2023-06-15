@@ -35,6 +35,7 @@ public:
     std::string toString();
     void setGlobal();
     void setTypeToSection();
+    bool isGlobal();
 };
 
 #endif

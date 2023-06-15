@@ -44,6 +44,9 @@ void Symbol::setGlobal() {
     bind = GLOB;
 }
 
+bool Symbol::isGlobal() {
+    return bind == GLOB;
+}
 void Symbol::setTypeToSection() {
     type = SCTN;
 }

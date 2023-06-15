@@ -131,11 +131,13 @@ void Assembler::checkDirective(std::string line, Pass pass) {
         }
 
         if(directive == ".global") {
-            int index = symbolExists(symbols[0]); 
-            if(index == -1) {
-                addSymbolToTable(symbols[0], currentLocation, currentSection, GLOB, false);
-            } else {
-                symTable[index]->setGlobal();
+            for(int i = 0; i < symbols.size(); i++) {
+                int index = symbolExists(symbols[i]); 
+                if(index == -1) {
+                    addSymbolToTable(symbols[i], currentLocation, currentSection, GLOB, false);
+                } else {
+                    symTable[index]->setGlobal();
+                }
             }
         } else if(directive == ".extern") {
            
@@ -151,14 +153,13 @@ void Assembler::checkDirective(std::string line, Pass pass) {
                         std::cout << "ERROR: LITERAL TOO BIG!" << std::endl;
                         exit(0);
                     }
-                
+                    
                     if(isHex(symbols[i])) {
                         appendZeroToHex(symbols[i]);
                         sections[currentSection]->addFourBytes(symbols[i]);
                     } else {
                         std::stringstream s;
-                        s << "0x";
-                        s << std::hex << std::stoi(symbols[i]);
+                        s << "0x" << std::hex << std::stoi(symbols[i]);
                         std::string temp;
                         s >> temp;
                         appendZeroToHex(temp);
@@ -167,18 +168,28 @@ void Assembler::checkDirective(std::string line, Pass pass) {
                 } else {
                     int index = symbolExists(symbols[i]); 
                     if(index == -1) {
-                        sections[currentSection]->skip(4);
-                        //DODATI SIMBOL U RELOKACIONU TABELU
+                        std::cout << "Symbol unknown!" << std::endl;
                     } else {
-                        std::string val = std::to_string(symTable[index]->getValue());
-                        val = "0x" + val;
-                        appendZeroToHex(val);
-                        sections[currentSection]->addFourBytes(val);
+                        if(symTable[index]->isGlobal()) {
+                            sections[currentSection]->skip(4);
+                            Relocation* rel = new Relocation(currentLocation, 0, symTable[index]->getNum());
+                            relocationTables[currentSection-1]->addRelocation(rel);
+                        } else {
+                            std::stringstream val;
+                            val << "0x" << std::hex << symTable[index]->getValue();
+                            std::string v = val.str();
+                            appendZeroToHex(v);
+                            sections[currentSection]->addFourBytes(v);
+                            Relocation* rel = new Relocation(currentLocation, 0, symTable[index]->getValue());
+                            relocationTables[currentSection-1]->addRelocation(rel);
+                        }
                     }
                 }
+                currentLocation += 4;
             }
         } else if(directive == ".skip") {
             sections[currentSection]->skip(std::stoi(symbols[0]));
+            currentLocation += std::stoi(symbols[0]);
         } else if(directive == ".end") {
             stopAssembling = true;
         } else {
@@ -205,18 +216,16 @@ void Assembler::checkInstruction(std::string line, Pass pass) {
 
         if(instruction == "halt") {
             sections[currentSection]->skip(4);
-            stopAssembling = true;
         } else if(instruction == "int") {
-            std::string temp = "10000000";
-            sections[currentSection]->addFourBytes(temp);
+            sections[currentSection]->addFourBytes("10000000");
         } else if(instruction == "iret") {
 
         } else if(instruction == "call") {
-
+            
         } else if(instruction == "ret") {
             
         } else if(instruction == "jmp") {
-            
+
         } else if(instruction == "beq") {
             
         } else if(instruction == "bne") {
@@ -224,31 +233,67 @@ void Assembler::checkInstruction(std::string line, Pass pass) {
         } else if(instruction == "bgt") {
             
         } else if(instruction == "push") {
-            
+            std::stringstream s;
+            s << "0x81E" << std::hex << std::stoi(getRegisterNumber(params[0])) << "0FFB";
+            std::cout << s.str() << std::endl;
+            sections[currentSection]->addFourBytes(s.str());
         } else if(instruction == "pop") {
-            
+            std::stringstream s;
+            s << "0x93" << std::hex << std::stoi(getRegisterNumber(params[0])) << "E0004";
+            sections[currentSection]->addFourBytes(s.str());
         } else if(instruction == "xchg") {
-            
+            std::stringstream s;
+            s << "0x400" << std::hex << std::stoi(getRegisterNumber(params[0])) << std::hex << std::stoi(getRegisterNumber(params[1])) << "000";
+            sections[currentSection]->addFourBytes(s.str());
         } else if(instruction == "add") {
-            
+            std::stringstream s;
+            s << "0x50" << std::hex << std::stoi(getRegisterNumber(params[1])) << std::hex << std::stoi(getRegisterNumber(params[1])) 
+                << std::hex << std::stoi(getRegisterNumber(params[0])) << "000";
+            sections[currentSection]->addFourBytes(s.str());
         } else if(instruction == "sub") {
-            
+            std::stringstream s;
+            s << "0x51" << std::hex << std::stoi(getRegisterNumber(params[1])) << std::hex << std::stoi(getRegisterNumber(params[1])) 
+                << std::hex << std::stoi(getRegisterNumber(params[0])) << "000";
+            sections[currentSection]->addFourBytes(s.str());
         } else if(instruction == "mul") {
-            
+            std::stringstream s;
+            s << "0x52" << std::hex << std::stoi(getRegisterNumber(params[1])) << std::hex << std::stoi(getRegisterNumber(params[1])) 
+                << std::hex << std::stoi(getRegisterNumber(params[0])) << "000";
+            sections[currentSection]->addFourBytes(s.str());
         } else if(instruction == "div") {
-            
+            std::stringstream s;
+            s << "0x53" << std::hex << std::stoi(getRegisterNumber(params[1])) << std::hex << std::stoi(getRegisterNumber(params[1])) 
+                << std::hex << std::stoi(getRegisterNumber(params[0])) << "000";
+            sections[currentSection]->addFourBytes(s.str());
         } else if(instruction == "not") { 
-            
+            std::stringstream s;
+            s << "0x60" << std::hex << std::stoi(getRegisterNumber(params[0])) << std::hex << std::stoi(getRegisterNumber(params[0])) << "0000";
+            sections[currentSection]->addFourBytes(s.str());
         } else if(instruction == "and") {
-            
+            std::stringstream s;
+            s << "0x61" << std::hex << std::stoi(getRegisterNumber(params[1])) << std::hex << std::stoi(getRegisterNumber(params[1])) 
+                << std::hex << std::stoi(getRegisterNumber(params[0])) << "000";
+            sections[currentSection]->addFourBytes(s.str());
         } else if(instruction == "or") {
-            
+            std::stringstream s;
+            s << "0x62" << std::hex << std::stoi(getRegisterNumber(params[1])) << std::hex << std::stoi(getRegisterNumber(params[1])) 
+                << std::hex << std::stoi(getRegisterNumber(params[0])) << "000";
+            sections[currentSection]->addFourBytes(s.str());
         } else if(instruction == "xor") {
-            
+            std::stringstream s;
+            s << "0x63" << std::hex << std::stoi(getRegisterNumber(params[1])) << std::hex << std::stoi(getRegisterNumber(params[1])) 
+                << std::hex << std::stoi(getRegisterNumber(params[0])) << "000";
+            sections[currentSection]->addFourBytes(s.str());
         } else if(instruction == "shl") {
-            
+            std::stringstream s;
+            s << "0x70" << std::hex << std::stoi(getRegisterNumber(params[1])) << std::hex << std::stoi(getRegisterNumber(params[1])) 
+                << std::hex << std::stoi(getRegisterNumber(params[0])) << "000";
+            sections[currentSection]->addFourBytes(s.str());
         } else if(instruction == "shr") {
-            
+            std::stringstream s;
+            s << "0x71" << std::hex << std::stoi(getRegisterNumber(params[1])) << std::hex << std::stoi(getRegisterNumber(params[1])) 
+                << std::hex << std::stoi(getRegisterNumber(params[0])) << "000";
+            sections[currentSection]->addFourBytes(s.str());
         } else if(instruction == "ld") {
             
         } else if(instruction == "st") {
@@ -314,8 +359,6 @@ void Assembler::printSymbolTable() {
 bool Assembler::isNumber(std::string s) {
     s.erase(std::remove(s.begin(), s.end(), '_'), s.end());
     s.erase(std::remove(s.begin(), s.end(), '-'), s.end());
-    // bool res = !std::regex_match(s, std::regex("^[A-Za-z]+$"));
-    // std::cout << s + ": " + (res ? "TRUE" : "FALSE") << std::endl;
     return !std::regex_match(s, std::regex("^[A-Za-z]+$"));
 }
 
@@ -337,51 +380,10 @@ void Assembler::appendZeroToHex(std::string &num) {
     } 
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// Instructions Assembler::convertIntoInstruction(std::string instruction) {
-//     if(instruction == "halt") return HALT;
-//     if(instruction == "int") return INT;
-//     if(instruction == "iret") return IRET;
-//     if(instruction == "call") return CALL;
-//     if(instruction == "ret") return RET;
-//     if(instruction == "jmp") return JMP;
-//     if(instruction == "beq") return BEQ;
-//     if(instruction == "bne") return BNE;
-//     if(instruction == "bgt") return BGT;
-//     if(instruction == "push") return PUSH;
-//     if(instruction == "pop") return POP;
-//     if(instruction == "xchg") return XCHG;
-//     if(instruction == "add") return ADD;
-//     if(instruction == "sub") return SUB;
-//     if(instruction == "mul") return MUL;
-//     if(instruction == "div") return DIV;
-//     if(instruction == "not") return NOT;
-//     if(instruction == "and") return AND;
-//     if(instruction == "or") return OR;
-//     if(instruction == "xor") return XOR;
-//     if(instruction == "shl") return SHL;
-//     if(instruction == "shr") return SHR;
-//     if(instruction == "ld") return LD;
-//     if(instruction == "st") return ST;
-//     if(instruction == "csrrd") return CSRRD;
-//     if(instruction == "csrwr") return CSRWR;
-//     return ERR_INS;
-// }
+std::string Assembler::getRegisterNumber(std::string reg) {
+    if(reg.length() == 3) 
+        return std::string{reg[2]};
+    else {
+        return reg.substr(2, 2);
+    }
+}

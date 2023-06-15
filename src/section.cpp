@@ -6,8 +6,11 @@
 Section::Section(std::string n): name(n) {}
 
 void Section::addFourBytes(std::string instr) {
-   for(int i = 2; i <= 8; i+=2) 
-        addr.push_back(instr.substr(i, 2));
+    std::vector<std::string> temp;
+    for(int i = 2; i <= 8; i+=2) 
+        temp.push_back(instr.substr(i, 2));
+    for(int i = 3; i >= 0; i--) 
+        addr.push_back(temp[i]);
 }
 
 std::string Section::getName() {
@@ -31,4 +34,11 @@ void Section::printSection() {
 
     std::cout << std::endl;
     std::cout << std::endl;
+}
+
+void Section::addOC(std::string oc) {
+
+}
+void Section::addThreeBytes(std::string opr) {
+
 }
