@@ -23,8 +23,6 @@ public:
     void setSectionSize(int n);
     int getSectionSize();
     void addToPool(std::string val);
-    void increasePoolSize();
-    int getEmptyPoolSize();
     int getPoolSize();
     ~Section();
 };

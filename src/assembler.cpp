@@ -104,7 +104,6 @@ void Assembler::checkDirective(std::string line, Pass pass) {
             sectionSizes.push_back(currentLocation);
             currentSection++;
             currentLocation = 0;
-            currentLocation += sections[currentSection-1]->getEmptyPoolSize();
             if(symbolExists(temp) == -1) 
                 addSymbolToTable(temp, currentLocation, currentSection, LOC, true);
         } else if(directive == ".word") {
@@ -210,12 +209,6 @@ void Assembler::checkDirective(std::string line, Pass pass) {
 void Assembler::checkInstruction(std::string line, Pass pass) {
     if(pass == FIRST) {
         currentLocation += 4;
-        std::string instruction;
-        std::stringstream ssin(line);
-        ssin >> instruction; 
-        if(instruction == "call" || instruction == "jmp" || instruction == "beq" || instruction == "bne" || instruction == "bgt") {
-            sections[currentSection]->increasePoolSize();
-        }
     } else {
         std::string instruction;
         std::vector<std::string> params;

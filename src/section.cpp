@@ -3,7 +3,7 @@
 #include "../inc/section.hpp"
 #include "../inc/instruction.hpp"
 
-Section::Section(std::string n): name(n), sectionSize(0), poolSize(0) {}
+Section::Section(std::string n): name(n), sectionSize(0) {}
 
 void Section::addFourBytes(std::string instr) {
     std::vector<std::string> temp;
@@ -55,14 +55,6 @@ int Section::getSectionSize() {
 
 int Section::getPoolSize() {
     return pool.size();
-}
-
-void Section::increasePoolSize() {
-    poolSize += 4;
-}
-
-int Section::getEmptyPoolSize() {
-    return poolSize;
 }
 
 void Section::addOC(std::string oc) {
