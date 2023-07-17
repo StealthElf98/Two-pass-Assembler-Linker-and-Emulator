@@ -29,6 +29,7 @@ private:
     bool stopAssembling;
     int currentLocation;
     int currentSection;
+    std::vector<int> sectionSizes;
     void firstPass(std::vector<std::string>& allLines);
     void secondPass(std::vector<std::string>& allLines);
     void checkLine(std::string line, Pass pass);   
@@ -42,6 +43,7 @@ private:
     bool isHex(std::string num);
     void appendZeroToHex(std::string &num);
     std::string getRegisterNumber(std::string reg);
+    std::string writeOffset();
 public:
     void assemble(std::vector<std::string>& allLines);
     Assembler();

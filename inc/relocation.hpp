@@ -8,10 +8,9 @@ class Relocation {
 private:
     int offset;
     int type;
-    int symbolNum;
-    int addend;
+    int num;
 public:
-    Relocation(int offser, int type, int addend);
+    Relocation(int offser, int type, int num);
     ~Relocation();
 };
 

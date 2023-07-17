@@ -24,15 +24,19 @@ void Assembler::assemble(std::vector<std::string>& allLines) {
     firstPass(allLines);
     secondPass(allLines);
     printSymbolTable();
-    for(int i = 1; i < sections.size(); i++)
+
+    for(int i = 1; i < sections.size(); i++) {
+        std::cout << "Section " + sections[i]->getName() + " size: " + std::to_string(sections[i]->getSectionSize()) << std::endl;
         sections[i]->printSection();
+    }
 }
 
 void Assembler::firstPass(std::vector<std::string>& allLines) {
     for(int i = 0; i < allLines.size(); i++) {
         if(!allLines[i].empty() && !stopAssembling) {
             checkLine(allLines[i], FIRST);
-        }
+        } else 
+            break;
     }
 }
 
@@ -41,7 +45,8 @@ void Assembler::secondPass(std::vector<std::string>& allLines) {
     for(int i = 0; i < allLines.size(); i++) {
         if(!allLines[i].empty() && !stopAssembling) {
             checkLine(allLines[i], SECOND);
-        }
+        } else 
+            break;
     }
 }    
 
@@ -96,8 +101,10 @@ void Assembler::checkDirective(std::string line, Pass pass) {
                 if(symbolExists(temp) == -1) 
                      addSymbolToTable(symbols[i], currentLocation, 0, GLOB, false);
         } else if(directive == ".section") {
+            sectionSizes.push_back(currentLocation);
             currentSection++;
             currentLocation = 0;
+            currentLocation += sections[currentSection-1]->getEmptyPoolSize();
             if(symbolExists(temp) == -1) 
                 addSymbolToTable(temp, currentLocation, currentSection, LOC, true);
         } else if(directive == ".word") {
@@ -107,6 +114,7 @@ void Assembler::checkDirective(std::string line, Pass pass) {
         } else if(directive == ".skip") {
             currentLocation += std::stoi(temp);
         } else if(directive == ".end") {
+            sectionSizes.push_back(currentLocation);
             currentLocation = 0;
             currentSection = 0;
             pass = SECOND;
@@ -146,6 +154,7 @@ void Assembler::checkDirective(std::string line, Pass pass) {
             currentSection++;
             relocationTables.push_back(new RelocationTable(symbols[0]));
             sections.push_back(new Section(symbols[0]));
+            sections[currentSection]->setSectionSize(sectionSizes[currentSection]);
         } else if(directive == ".word") {
             for(int i = 0; i < symbols.size(); i++) {
                 if(isNumber(symbols[i])) {
@@ -201,6 +210,12 @@ void Assembler::checkDirective(std::string line, Pass pass) {
 void Assembler::checkInstruction(std::string line, Pass pass) {
     if(pass == FIRST) {
         currentLocation += 4;
+        std::string instruction;
+        std::stringstream ssin(line);
+        ssin >> instruction; 
+        if(instruction == "call" || instruction == "jmp" || instruction == "beq" || instruction == "bne" || instruction == "bgt") {
+            sections[currentSection]->increasePoolSize();
+        }
     } else {
         std::string instruction;
         std::vector<std::string> params;
@@ -219,11 +234,53 @@ void Assembler::checkInstruction(std::string line, Pass pass) {
         } else if(instruction == "int") {
             sections[currentSection]->addFourBytes("10000000");
         } else if(instruction == "iret") {
-
+            
         } else if(instruction == "call") {
-            
+            if(isNumber(params[0])) {
+                if(isHex(params[0])) {
+                    appendZeroToHex(params[0]);
+                    sections[currentSection]->addToPool(params[0]);
+                } else {
+                    std::stringstream s;
+                    s << "0x" <<  std::hex << std::stoi(params[0]);
+                    std::string temp;
+                    s >> temp;
+                    appendZeroToHex(temp);
+                    sections[currentSection]->addToPool(temp);
+                }
+                std::stringstream ss;
+                ss << "0x20000" << writeOffset();
+                sections[currentSection]->addFourBytes(ss.str());
+            } else {
+                int index = symbolExists(params[0]);
+                if(symTable[index]->isGlobal()) {
+                    if(symTable[index]->getSection() != 0) {
+                        // Symbol is global
+
+                    } else {
+                        // Symbol is extern
+
+                    }
+                } else {
+                    // Adding symbol value to pool (to the end of current section)
+                    std::stringstream s;
+                    s << "0x" << std::hex << symTable[index]->getValue();
+                    std::string temp = s.str();
+                    appendZeroToHex(temp);
+                    std::cout << "Value symbola: " + temp << std::endl;
+                    sections[currentSection]->addToPool(temp);
+                    int lc = sections[currentSection]->getSectionSize() + sections[currentSection]->getPoolSize() - 4;
+                    std::cout << "Location counter symbola: " + std::to_string(lc) << std::endl;
+                    relocationTables[currentSection]->addRelocation(new Relocation(lc, 0, symTable[index]->getValue()));
+                }
+                std::stringstream ss;
+                ss << "0x21000" << writeOffset();
+                std::cout << "Call with symbol: " + ss.str() << std::endl;
+                sections[currentSection]->addFourBytes(ss.str());
+            }         
         } else if(instruction == "ret") {
-            
+            // 93(oc) F(pc) E(sp) 0(ne koristi se) 004(disp za sp)
+            sections[currentSection]->addFourBytes("0x93FE0004");
         } else if(instruction == "jmp") {
 
         } else if(instruction == "beq") {
@@ -235,7 +292,6 @@ void Assembler::checkInstruction(std::string line, Pass pass) {
         } else if(instruction == "push") {
             std::stringstream s;
             s << "0x81E" << std::hex << std::stoi(getRegisterNumber(params[0])) << "0FFB";
-            std::cout << s.str() << std::endl;
             sections[currentSection]->addFourBytes(s.str());
         } else if(instruction == "pop") {
             std::stringstream s;
@@ -364,9 +420,9 @@ bool Assembler::isNumber(std::string s) {
 
 bool Assembler::literalTooBig(std::string num) {
     if (num.find('x') != std::string::npos) { 
-        return num.length() >= 6;
+        return num.length() > 5;
     } else {
-        return std::stoi(num) >= 4096;
+        return std::stoi(num) > 4095;
     }
 }
 
@@ -386,4 +442,15 @@ std::string Assembler::getRegisterNumber(std::string reg) {
     else {
         return reg.substr(2, 2);
     }
+}
+
+std::string Assembler::writeOffset() {
+    int offs = sections[currentSection]->getSectionSize() + (sections[currentSection]->getPoolSize() - 4) - currentLocation - 4;
+    std::stringstream s;
+    s << std::hex << offs;
+    std::string temp = s.str();
+    if(s.str().length() < 3) {
+        temp.insert (0, 3 - temp.length(), '0');
+    }
+    return temp;
 }

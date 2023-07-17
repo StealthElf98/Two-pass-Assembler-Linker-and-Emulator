@@ -10,6 +10,8 @@ private:
     std::string name;
     std::vector<std::string> addr;
     std::vector<std::string> pool;  
+    int sectionSize;
+    int poolSize;
 public:
     Section(std::string name);
     void addFourBytes(std::string instr);
@@ -18,6 +20,12 @@ public:
     void printSection();
     void addOC(std::string oc);
     void addThreeBytes(std::string opr);
+    void setSectionSize(int n);
+    int getSectionSize();
+    void addToPool(std::string val);
+    void increasePoolSize();
+    int getEmptyPoolSize();
+    int getPoolSize();
     ~Section();
 };
 

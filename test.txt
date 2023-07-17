@@ -3,22 +3,24 @@
 .section my_code_handler
 .skip 8
 handler:
+    call 0x12345678
     push %r1
     push %r2
     csrrd %cause, %r1
     ld $2, %r2
+    call my_isr_terminal
     beq %r1, %r2, my_isr_timer
     ld $3, %r2
     beq %r1, %r2, my_isr_terminal
     div %r5, %r15
-.word 0xff
-.skip 5
+.word 0xFF
+.skip 4
 # obrada prekida od tajmera
 .section sekcija2
 my_isr_timer:
     pop %r3
     jmp finish
-    call myNesto
+    call 0xFF000000
 # obrada prekida od terminala
 my_isr_terminal:
     ld my_counter, %r1
