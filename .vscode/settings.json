@@ -55,5 +55,6 @@
         "xhash": "cpp",
         "xlocbuf": "cpp",
         "xlocmes": "cpp"
-    }
+    },
+    "C_Cpp.errorSquiggles": "disabled"
 }

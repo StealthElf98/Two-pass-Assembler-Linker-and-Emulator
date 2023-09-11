@@ -6,12 +6,15 @@
 
 class Relocation {
 private:
-    int offset;
-    int type;
-    int num;
+    int sectionNum;
+    int location;
+    int val;
 public:
-    Relocation(int offser, int type, int num);
+    Relocation(int section, int offset, int num);
     ~Relocation();
+    int getSectionNumber();
+    void printRelocationTables();
+    std::string toString();
 };
 
 #endif

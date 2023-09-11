@@ -23,7 +23,6 @@ void Section::skip(int numOfBytes) {
 }
 
 void Section::printSection() {
-    addr.insert( addr.end(), pool.begin(), pool.end());
     std::cout << "SECTION " + getName() << std::endl;
     for(int i = 0; i < addr.size(); i++) {
         if(i % 8 == 0) 
@@ -55,11 +54,4 @@ int Section::getSectionSize() {
 
 int Section::getPoolSize() {
     return pool.size();
-}
-
-void Section::addOC(std::string oc) {
-
-}
-void Section::addThreeBytes(std::string opr) {
-
 }

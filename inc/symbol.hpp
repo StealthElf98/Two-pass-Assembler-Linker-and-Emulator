@@ -14,20 +14,18 @@ enum Bind {
 
 class Symbol {
 private:
-    static int globalNum;
     int num;
     int value;
-    int size;
     Type type;
     Bind bind;
     int section;
     std::string name;
 public:
+    static int globalNum;
     Symbol(int value, Type type, int section, std::string name);
     ~Symbol();
     int getNum();
     int getValue();
-    int getSize();
     Type getType();
     Bind getBind();
     int getSection();

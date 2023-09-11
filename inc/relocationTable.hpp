@@ -7,13 +7,15 @@
 
 class RelocationTable {
 private:
-    std::string name;
-    std::vector<Relocation*> relocations;
 public:
+    std::string tableName;
+    std::vector<Relocation*> relocations;
     RelocationTable(std::string name);
     ~RelocationTable();
     void addRelocation(Relocation* rel);
     std::string getName();
+    int getNumOfRelocations();
+    // void printRelocationTable();
 };
 
 #endif

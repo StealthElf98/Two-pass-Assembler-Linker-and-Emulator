@@ -8,7 +8,6 @@ int Symbol::globalNum = 0;
 
 Symbol::Symbol(int v, Type t, int s, std::string n): name(n), value(v), type(t), section(s) {
     num = globalNum++;
-    size = 0;
     bind = LOC;
 }
 
@@ -18,9 +17,7 @@ int Symbol::getNum() {
 int Symbol::getValue() {
     return value;
 }
-int Symbol::getSize() {
-    return size;
-}
+
 Type Symbol::getType() {
     return type;
 }

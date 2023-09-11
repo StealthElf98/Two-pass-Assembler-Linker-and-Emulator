@@ -6,8 +6,9 @@
 Parser::Parser(std::string inputFile) {
     Parser::numOfLines = 0;
     std::string line;
-    std::ifstream myfile(inputFile + ".txt");
+    std::ifstream myfile("../tests/" + inputFile);
 
+    std::cout<<inputFile << std::endl;
     while (std::getline(myfile, line))
         ++numOfLines;
 
@@ -27,11 +28,10 @@ int Parser::getNumOfLines() {
 }
 
 void Parser::parse(std::string inputFile) {
-    std::ifstream file(inputFile + ".txt");
+    std::ifstream file("../tests/" + inputFile);
     std::string str; 
-    int i = 0;
 
-    while (std::getline(file, str)) {
+    while(std::getline(file, str)) {
         if(!str.empty())
             allLines.push_back(str.substr(str.find_first_not_of(" ")));
     }

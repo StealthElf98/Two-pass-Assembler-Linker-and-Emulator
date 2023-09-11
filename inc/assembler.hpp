@@ -3,6 +3,7 @@
 
 #include <string>
 #include <vector>
+#include <unordered_map>
 #include "../inc/relocationtable.hpp"
 #include "../inc/symbol.hpp"
 #include "../inc/section.hpp"
@@ -22,8 +23,12 @@ enum Pass {
 
 class Assembler {
 private:
+    std::string name;
+    int currentSectionId;
+    std::vector<int> sectionIds;
     std::vector<Symbol*> symTable;
-    std::vector<RelocationTable*> relocationTables;
+    std::unordered_map<int, std::vector<Relocation*>> relocationTables;
+    // std::vector<RelocationTable*> relocationTables;
     std::vector<Section*> sections;
     Pass pass;
     bool stopAssembling;
@@ -42,11 +47,21 @@ private:
     bool literalTooBig(std::string num);
     bool isHex(std::string num);
     void appendZeroToHex(std::string &num);
+    void appendZeroToD(std::string &num);
     std::string getRegisterNumber(std::string reg);
     std::string writeOffset();
+    void printRelocationTables();
+    int canFitIn(std::string num, int locationCounter);
+    bool valueOfSymOK(int value, int locationCounter);
+    int canJmpInD(std::string value);
+    int canLoadInD(std::string value);
+    std::string resolveRegister(std::string reg);
+    std::string canSymFit(int value);
+    int getCSR(std::string value);
+    void writeInOutputFile();
 public:
     void assemble(std::vector<std::string>& allLines);
-    Assembler();
+    Assembler(std::string n);
     ~Assembler();
 };
 

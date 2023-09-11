@@ -23,7 +23,7 @@ int main(int argc, char* argv[]) {
     }
 
     Parser* parser = new Parser(inputFile);
-    Assembler* assembler = new Assembler();
+    Assembler* assembler = new Assembler(outputFile);
     
     std::vector<std::string> parsedLines = parser->getAllLines();
     assembler->assemble(parsedLines);

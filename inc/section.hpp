@@ -8,11 +8,10 @@
 class Section {
 private:
     std::string name;
+    int sectionSize;
+public:
     std::vector<std::string> addr;
     std::vector<std::string> pool;  
-    int sectionSize;
-    int poolSize;
-public:
     Section(std::string name);
     void addFourBytes(std::string instr);
     void skip(int numOfBytes);

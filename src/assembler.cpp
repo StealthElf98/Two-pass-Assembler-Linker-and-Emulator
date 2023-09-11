@@ -4,12 +4,16 @@
 #include <sstream>
 #include <algorithm>
 #include <regex>
+#include <algorithm>
+#include <fstream>
 #include "../inc/assembler.hpp"
 #include "../inc/section.hpp"
 
-Assembler::Assembler() {
+Assembler::Assembler(std::string n) {
+    name = n;
     symTable.push_back(new Symbol(0, NOTYP, 0, "UND")); //first symbol 0 0 0 UND
     currentLocation = 0;
+    currentSectionId = 0;
     currentSection = 0;
     pass = FIRST;
     stopAssembling = false;
@@ -25,10 +29,15 @@ void Assembler::assemble(std::vector<std::string>& allLines) {
     secondPass(allLines);
     printSymbolTable();
 
+    writeInOutputFile();
+    
     for(int i = 1; i < sections.size(); i++) {
         std::cout << "Section " + sections[i]->getName() + " size: " + std::to_string(sections[i]->getSectionSize()) << std::endl;
         sections[i]->printSection();
     }
+
+    printRelocationTables();
+
 }
 
 void Assembler::firstPass(std::vector<std::string>& allLines) {
@@ -60,7 +69,7 @@ void Assembler::checkLine(std::string line, Pass pass) {
         if(line.find(':') == line.size() - 1) {  // .labela
             std::string label = line.substr(0, line.find(':'));
             if(symbolExists(label) == -1) {
-                addSymbolToTable(label, currentLocation, currentSection, LOC, false);
+                addSymbolToTable(label, currentLocation, currentSectionId, LOC, false);
             }
         } else {                                // .sveOstalo
             checkInstruction(line, FIRST);
@@ -99,13 +108,15 @@ void Assembler::checkDirective(std::string line, Pass pass) {
         if(directive == ".extern") {
             for(int i = 0; i < symbols.size(); i++) 
                 if(symbolExists(temp) == -1) 
-                     addSymbolToTable(symbols[i], currentLocation, 0, GLOB, false);
+                    addSymbolToTable(symbols[i], currentLocation, 0, GLOB, false);
         } else if(directive == ".section") {
             sectionSizes.push_back(currentLocation);
             currentSection++;
             currentLocation = 0;
             if(symbolExists(temp) == -1) 
-                addSymbolToTable(temp, currentLocation, currentSection, LOC, true);
+                addSymbolToTable(temp, currentLocation, Symbol::globalNum, LOC, true);
+            sectionIds.push_back(symTable.back()->getNum());
+            currentSectionId = symTable.back()->getNum();
         } else if(directive == ".word") {
             for(int i = 0; i < symbols.size(); i++) {
                 currentLocation += 4;
@@ -141,7 +152,7 @@ void Assembler::checkDirective(std::string line, Pass pass) {
             for(int i = 0; i < symbols.size(); i++) {
                 int index = symbolExists(symbols[i]); 
                 if(index == -1) {
-                    addSymbolToTable(symbols[i], currentLocation, currentSection, GLOB, false);
+                    addSymbolToTable(symbols[i], currentLocation, currentSectionId, GLOB, false);
                 } else {
                     symTable[index]->setGlobal();
                 }
@@ -151,7 +162,9 @@ void Assembler::checkDirective(std::string line, Pass pass) {
         } else if(directive == ".section") {
             currentLocation = 0;
             currentSection++;
-            relocationTables.push_back(new RelocationTable(symbols[0]));
+            currentSectionId = sectionIds[currentSection-1];
+            // std::cout << "Id trenutne sekcije: " + std::to_string(currentSectionId) << std::endl;
+            relocationTables[currentSectionId] = std::vector<Relocation*>();
             sections.push_back(new Section(symbols[0]));
             sections[currentSection]->setSectionSize(sectionSizes[currentSection]);
         } else if(directive == ".word") {
@@ -161,7 +174,6 @@ void Assembler::checkDirective(std::string line, Pass pass) {
                         std::cout << "ERROR: LITERAL TOO BIG!" << std::endl;
                         exit(0);
                     }
-                    
                     if(isHex(symbols[i])) {
                         appendZeroToHex(symbols[i]);
                         sections[currentSection]->addFourBytes(symbols[i]);
@@ -179,17 +191,21 @@ void Assembler::checkDirective(std::string line, Pass pass) {
                         std::cout << "Symbol unknown!" << std::endl;
                     } else {
                         if(symTable[index]->isGlobal()) {
-                            sections[currentSection]->skip(4);
-                            Relocation* rel = new Relocation(currentLocation, 0, symTable[index]->getNum());
-                            relocationTables[currentSection-1]->addRelocation(rel);
+                            Relocation* rel = new Relocation(currentSectionId, currentLocation, symTable[index]->getNum());
+                            relocationTables[currentSectionId].push_back(rel);                            
+                            // relocationTables[currentSection]->addRelocation(rel);
+                            sections[currentSection]->skip(4); 
                         } else {
-                            std::stringstream val;
-                            val << "0x" << std::hex << symTable[index]->getValue();
-                            std::string v = val.str();
-                            appendZeroToHex(v);
-                            sections[currentSection]->addFourBytes(v);
-                            Relocation* rel = new Relocation(currentLocation, 0, symTable[index]->getValue());
-                            relocationTables[currentSection-1]->addRelocation(rel);
+                            Relocation* rel = new Relocation(currentSectionId, currentLocation, symTable[index]->getSection());
+                            relocationTables[currentSectionId].push_back(rel);
+                            // relocationTables[currentSection]->addRelocation(rel);
+                            
+                            std::stringstream s;
+                            s << "0x" << std::hex << symTable[index]->getValue();
+                            std::string temp;
+                            s >> temp;
+                            appendZeroToHex(temp);
+                            sections[currentSection]->addFourBytes(temp);
                         }
                     }
                 }
@@ -218,6 +234,9 @@ void Assembler::checkInstruction(std::string line, Pass pass) {
         ssin >> instruction;
         ssin >> temp;
         params.push_back(temp);
+
+        // std::cout << line << std::endl;
+        std::stringstream s;
         while(ssin >> temp) {
             params.push_back(temp);
         }
@@ -225,134 +244,671 @@ void Assembler::checkInstruction(std::string line, Pass pass) {
         if(instruction == "halt") {
             sections[currentSection]->skip(4);
         } else if(instruction == "int") {
-            sections[currentSection]->addFourBytes("10000000");
+            sections[currentSection]->addFourBytes("0x10000000");
         } else if(instruction == "iret") {
-            
-        } else if(instruction == "call") {
-            if(isNumber(params[0])) {
-                if(isHex(params[0])) {
-                    appendZeroToHex(params[0]);
-                    sections[currentSection]->addToPool(params[0]);
-                } else {
-                    std::stringstream s;
-                    s << "0x" <<  std::hex << std::stoi(params[0]);
-                    std::string temp;
-                    s >> temp;
-                    appendZeroToHex(temp);
-                    sections[currentSection]->addToPool(temp);
-                }
-                std::stringstream ss;
-                ss << "0x20000" << writeOffset();
-                sections[currentSection]->addFourBytes(ss.str());
-            } else {
-                int index = symbolExists(params[0]);
-                if(symTable[index]->isGlobal()) {
-                    if(symTable[index]->getSection() != 0) {
-                        // Symbol is global
-
-                    } else {
-                        // Symbol is extern
-
-                    }
-                } else {
-                    // Adding symbol value to pool (to the end of current section)
-                    std::stringstream s;
-                    s << "0x" << std::hex << symTable[index]->getValue();
-                    std::string temp = s.str();
-                    appendZeroToHex(temp);
-                    std::cout << "Value symbola: " + temp << std::endl;
-                    sections[currentSection]->addToPool(temp);
-                    int lc = sections[currentSection]->getSectionSize() + sections[currentSection]->getPoolSize() - 4;
-                    std::cout << "Location counter symbola: " + std::to_string(lc) << std::endl;
-                    relocationTables[currentSection]->addRelocation(new Relocation(lc, 0, symTable[index]->getValue()));
-                }
-                std::stringstream ss;
-                ss << "0x21000" << writeOffset();
-                std::cout << "Call with symbol: " + ss.str() << std::endl;
-                sections[currentSection]->addFourBytes(ss.str());
-            }         
+            //pop pc; pop status;
+            sections[currentSection]->addFourBytes("0x93FE0004");
+            sections[currentSection]->addFourBytes("0x970E0004");
         } else if(instruction == "ret") {
             // 93(oc) F(pc) E(sp) 0(ne koristi se) 004(disp za sp)
             sections[currentSection]->addFourBytes("0x93FE0004");
-        } else if(instruction == "jmp") {
+        } else if(instruction == "call") {
+            if(isNumber(params[0])) {
+                std::stringstream ss;
+                int literal = canFitIn(params[0], currentLocation); 
+                if(literal != -1){
+                    std::stringstream temp;
+                    temp << "0x" << std::hex << literal;
+                    temp >> params[0];
+                    appendZeroToD(params[0]);
 
-        } else if(instruction == "beq") {
-            
-        } else if(instruction == "bne") {
-            
-        } else if(instruction == "bgt") {
-            
+                    ss << "0x20000" << params[0].substr(2, 3);
+                    sections[currentSection]->addFourBytes(ss.str());
+                } else {
+                    if(isHex(params[0])) {
+                        appendZeroToHex(params[0]);
+                        sections[currentSection]->addToPool(params[0]);
+                    } else {
+                        std::stringstream t;
+                        t << "0x" <<  std::hex << std::stoi(params[0]);
+                        std::string temp;
+                        t >> temp;
+                        appendZeroToHex(temp);
+                        sections[currentSection]->addToPool(temp);
+                    }
+
+                    ss << "0x21F00" << writeOffset();
+                    sections[currentSection]->addFourBytes(ss.str());
+                }
+            } else {
+                std::stringstream t;
+                int index = symbolExists(params[0]);
+                if(index != -1) { // globalni simbol 21
+                    if(symTable[index]->isGlobal()) {
+                        sections[currentSection]->addToPool("0x00000000");
+                        int lc = sections[currentSection]->getSectionSize() + sections[currentSection]->getPoolSize() - 4;
+                        Relocation* rel = new Relocation(currentSectionId, lc, symTable[index]->getNum());
+                        relocationTables[currentSectionId].push_back(rel);
+
+                        std::stringstream ss;
+                        ss << "0x21F00" << writeOffset();
+                        sections[currentSection]->addFourBytes(ss.str());
+                    } else { // lokalini simbol
+                        //if velicina i sekcija ok 20
+                        if(valueOfSymOK(symTable[index]->getValue(), currentLocation) && symTable[index]->getSection() == currentSectionId) {
+                            //pomeraj je value simbola - pc(lc)
+                            int value = (symTable[index]->getValue() - currentLocation) >= 0 ? symTable[index]->getValue() - currentLocation - 4 : symTable[index]->getValue() - currentLocation;
+                            t << std::hex << value;
+
+                            std::string temp;
+                            if(symTable[index]->getValue() - currentLocation < 0) {
+                                temp = "0x" + t.str().substr(5, 3);
+                            } else {
+                                temp = "0x" + t.str();
+                            }
+                            appendZeroToD(temp);
+
+                            std::stringstream ss;
+                            ss << "0x20F00" << temp.substr(2, 3);
+                            sections[currentSection]->addFourBytes(ss.str());
+                        } else {
+                            t << "0x" << std::hex << symTable[index]->getValue();
+                            std::string temp = t.str();
+                            appendZeroToHex(temp);
+                            sections[currentSection]->addToPool(temp);
+                            int lc = sections[currentSection]->getSectionSize() + sections[currentSection]->getPoolSize() - 4;
+                            Relocation* rel = new Relocation(currentSectionId, lc,  symTable[index]->getSection());
+                            relocationTables[currentSectionId].push_back(rel);
+
+                            std::stringstream ss;
+                            ss << "0x21000" << writeOffset();
+                            sections[currentSection]->addFourBytes(ss.str());
+                        }
+                    }
+                } else {
+                    std::cout << "ERROR: COULDN'T FIND A SYMBOL!" << std::endl;
+                }
+            }         
+        } else if(instruction == "jmp") {
+            if(isNumber(params[0])) {
+                std::stringstream ss;
+                int literal = canJmpInD(params[0]); 
+                if(literal != -1) {
+                    // pc <= D 30
+                    std::stringstream temp;
+                    temp << "0x" << std::hex << literal;
+                    temp >> params[0];
+                    appendZeroToD(params[0]);
+
+                    ss << "0x30000" << params[0].substr(2, 3);
+                    sections[currentSection]->addFourBytes(ss.str()); 
+                } else {
+                    // pc <= pc + pom do bazena 38
+                    if(isHex(params[0])) {
+                        appendZeroToHex(params[0]);
+                        sections[currentSection]->addToPool(params[0]);
+                    } else {
+                        std::stringstream t;
+                        t << "0x" <<  std::hex << std::stoi(params[0]);
+                        std::string temp;
+                        t >> temp;
+                        appendZeroToHex(temp);
+                        sections[currentSection]->addToPool(temp);
+                    }
+
+                    ss << "0x38F00" << writeOffset();
+                    sections[currentSection]->addFourBytes(ss.str()); 
+                }
+            } else {
+                std::stringstream t;
+                int index = symbolExists(params[0]);
+                if(index != -1) {
+                    if(symTable[index]->isGlobal()) {
+                        sections[currentSection]->addToPool("0x00000000");
+                        int lc = sections[currentSection]->getSectionSize() + sections[currentSection]->getPoolSize() - 4;
+                        Relocation* rel = new Relocation(currentSectionId, lc, symTable[index]->getNum());
+                        relocationTables[currentSectionId].push_back(rel);
+
+                        std::stringstream ss;
+                        ss << "0x38F00" << writeOffset();
+                        sections[currentSection]->addFourBytes(ss.str());    
+                    } else {
+                        if(valueOfSymOK(symTable[index]->getValue(), currentLocation) && symTable[index]->getSection() == currentSectionId) {
+                            //pomeraj je value simbola - pc(lc)
+                            int value = symTable[index]->getValue() - currentLocation - 4; 
+                            t << std::hex << value;
+
+                            std::string temp;
+                            if(symTable[index]->getValue() - currentLocation - 4 < 0) {
+                                temp = "0x" + t.str().substr(5, 3);
+                            } else {
+                                temp = "0x" + t.str();
+                            }
+
+                            appendZeroToD(temp);
+
+                            std::stringstream ss;
+                            ss << "0x30F00" << temp.substr(2, 3);
+                            sections[currentSection]->addFourBytes(ss.str());
+                        } else {
+                            t << "0x" << std::hex << symTable[index]->getValue();
+                            std::string temp = t.str();
+                            appendZeroToHex(temp);
+                            sections[currentSection]->addToPool(temp);
+                            int lc = sections[currentSection]->getSectionSize() + sections[currentSection]->getPoolSize() - 4;
+                            Relocation* rel = new Relocation(currentSectionId, lc, symTable[index]->getSection());
+                            relocationTables[currentSectionId].push_back(rel);
+
+                            std::stringstream ss;
+                            ss << "0x38F00" << writeOffset();
+                            sections[currentSection]->addFourBytes(ss.str());
+                        }
+                    }
+                }
+            }
+        } else if(instruction == "beq" || instruction == "bne" || instruction == "bgt") {
+            std::vector<std::string> oc;
+            if(instruction == "beq") {
+                oc.push_back("31");
+                oc.push_back("39");
+            } else if(instruction == "bne") {
+                oc.push_back("32");
+                oc.push_back("3A");
+            } else {
+                oc.push_back("33");
+                oc.push_back("3B");
+            }
+            std::string r1, r2;
+            std::stringstream t;
+            t << std::hex << std::stoi(getRegisterNumber(params[0]));
+            r1 = t.str();
+            t.str(std::string());
+            t << std::hex << std::stoi(getRegisterNumber(params[1]));
+            r2 = t.str();
+
+            if(isNumber(params[2])) {
+                std::stringstream ss;
+                int literal = canJmpInD(params[2]); 
+                if(literal != -1) {
+                    // pc <= D 30
+                    std::stringstream temp;
+                    temp << "0x" << std::hex << literal;
+                    temp >> params[2];
+                    appendZeroToD(params[2]);
+
+                    ss << "0x" << oc[0] <<"0" << r1 << r2 << params[2].substr(2, 3);
+                    sections[currentSection]->addFourBytes(ss.str()); 
+                } else {
+                    // pc <= pc + pom do bazena 38
+                    if(isHex(params[2])) {
+                        appendZeroToHex(params[2]);
+                        sections[currentSection]->addToPool(params[2]);
+                    } else {
+                        std::stringstream t;
+                        t << "0x" <<  std::hex << std::stoi(params[2]);
+                        std::string temp;
+                        t >> temp;
+                        appendZeroToHex(temp);
+                        sections[currentSection]->addToPool(temp);
+                    }
+
+                    ss << "0x" << oc[1] << "F" << r1 << r2 << writeOffset();
+                    sections[currentSection]->addFourBytes(ss.str()); 
+                }
+            } else {
+                std::stringstream t;
+                int index = symbolExists(params[2]);
+                if(index != -1) {
+                    if(symTable[index]->isGlobal()) {
+                        sections[currentSection]->addToPool("0x00000000");
+                        int lc = sections[currentSection]->getSectionSize() + sections[currentSection]->getPoolSize() - 4;
+                        Relocation* rel = new Relocation(currentSectionId, lc, symTable[index]->getNum());
+                        relocationTables[currentSectionId].push_back(rel);
+
+                        std::stringstream ss;
+                        ss << "0x" << oc[1] << "F" << r1 << r2 << writeOffset();
+                        sections[currentSection]->addFourBytes(ss.str());    
+                    } else {
+                        if(valueOfSymOK(symTable[index]->getValue(), currentLocation) && symTable[index]->getSection() == currentSectionId) {
+                            //pomeraj je value simbola - pc(lc)
+                            // std::cout << " val: " + std::to_string(symTable[index]->getValue()) + " lc: " + std::to_string(currentLocation) << std::endl;
+                            int value = symTable[index]->getValue() - currentLocation - 4; 
+                            t << std::hex << value;
+
+                            // std::cout << " VAL: " + t.str() << std::endl;
+                            std::string temp;
+                            if(symTable[index]->getValue() - currentLocation - 4 < 0) {
+                                temp = "0x" + t.str().substr(5, 3);
+                            } else {
+                                temp = "0x" + t.str();
+                            }
+
+                            appendZeroToD(temp);
+
+
+                            std::stringstream ss;
+                            ss << "0x" << oc[0] << "F" << r1 << r2 << temp.substr(2, 3);
+                            sections[currentSection]->addFourBytes(ss.str());
+                        } else {
+                            t << "0x" << std::hex << symTable[index]->getValue();
+                            std::string temp = t.str();
+                            appendZeroToHex(temp);
+                            sections[currentSection]->addToPool(temp);
+                            int lc = sections[currentSection]->getSectionSize() + sections[currentSection]->getPoolSize() - 4;
+                            Relocation* rel = new Relocation(currentSectionId, lc, symTable[index]->getSection());
+                            relocationTables[currentSectionId].push_back(rel);
+
+                            std::stringstream ss;
+                            ss << "0x" << oc[1] << "F" << r1 << r2 << writeOffset();
+                            sections[currentSection]->addFourBytes(ss.str());
+                        }
+                    }
+                }
+            }
         } else if(instruction == "push") {
-            std::stringstream s;
-            s << "0x81E" << std::hex << std::stoi(getRegisterNumber(params[0])) << "0FFB";
+            s << "0x81E0" << std::hex << std::stoi(getRegisterNumber(params[0])) << "FFC";
             sections[currentSection]->addFourBytes(s.str());
         } else if(instruction == "pop") {
-            std::stringstream s;
             s << "0x93" << std::hex << std::stoi(getRegisterNumber(params[0])) << "E0004";
             sections[currentSection]->addFourBytes(s.str());
         } else if(instruction == "xchg") {
-            std::stringstream s;
             s << "0x400" << std::hex << std::stoi(getRegisterNumber(params[0])) << std::hex << std::stoi(getRegisterNumber(params[1])) << "000";
             sections[currentSection]->addFourBytes(s.str());
         } else if(instruction == "add") {
-            std::stringstream s;
             s << "0x50" << std::hex << std::stoi(getRegisterNumber(params[1])) << std::hex << std::stoi(getRegisterNumber(params[1])) 
                 << std::hex << std::stoi(getRegisterNumber(params[0])) << "000";
             sections[currentSection]->addFourBytes(s.str());
         } else if(instruction == "sub") {
-            std::stringstream s;
             s << "0x51" << std::hex << std::stoi(getRegisterNumber(params[1])) << std::hex << std::stoi(getRegisterNumber(params[1])) 
                 << std::hex << std::stoi(getRegisterNumber(params[0])) << "000";
             sections[currentSection]->addFourBytes(s.str());
         } else if(instruction == "mul") {
-            std::stringstream s;
             s << "0x52" << std::hex << std::stoi(getRegisterNumber(params[1])) << std::hex << std::stoi(getRegisterNumber(params[1])) 
                 << std::hex << std::stoi(getRegisterNumber(params[0])) << "000";
             sections[currentSection]->addFourBytes(s.str());
         } else if(instruction == "div") {
-            std::stringstream s;
             s << "0x53" << std::hex << std::stoi(getRegisterNumber(params[1])) << std::hex << std::stoi(getRegisterNumber(params[1])) 
                 << std::hex << std::stoi(getRegisterNumber(params[0])) << "000";
             sections[currentSection]->addFourBytes(s.str());
-        } else if(instruction == "not") { 
-            std::stringstream s;
+        } else if(instruction == "not") {
             s << "0x60" << std::hex << std::stoi(getRegisterNumber(params[0])) << std::hex << std::stoi(getRegisterNumber(params[0])) << "0000";
             sections[currentSection]->addFourBytes(s.str());
         } else if(instruction == "and") {
-            std::stringstream s;
             s << "0x61" << std::hex << std::stoi(getRegisterNumber(params[1])) << std::hex << std::stoi(getRegisterNumber(params[1])) 
                 << std::hex << std::stoi(getRegisterNumber(params[0])) << "000";
             sections[currentSection]->addFourBytes(s.str());
         } else if(instruction == "or") {
-            std::stringstream s;
             s << "0x62" << std::hex << std::stoi(getRegisterNumber(params[1])) << std::hex << std::stoi(getRegisterNumber(params[1])) 
                 << std::hex << std::stoi(getRegisterNumber(params[0])) << "000";
             sections[currentSection]->addFourBytes(s.str());
         } else if(instruction == "xor") {
-            std::stringstream s;
             s << "0x63" << std::hex << std::stoi(getRegisterNumber(params[1])) << std::hex << std::stoi(getRegisterNumber(params[1])) 
                 << std::hex << std::stoi(getRegisterNumber(params[0])) << "000";
             sections[currentSection]->addFourBytes(s.str());
         } else if(instruction == "shl") {
-            std::stringstream s;
             s << "0x70" << std::hex << std::stoi(getRegisterNumber(params[1])) << std::hex << std::stoi(getRegisterNumber(params[1])) 
                 << std::hex << std::stoi(getRegisterNumber(params[0])) << "000";
             sections[currentSection]->addFourBytes(s.str());
         } else if(instruction == "shr") {
-            std::stringstream s;
             s << "0x71" << std::hex << std::stoi(getRegisterNumber(params[1])) << std::hex << std::stoi(getRegisterNumber(params[1])) 
                 << std::hex << std::stoi(getRegisterNumber(params[0])) << "000";
             sections[currentSection]->addFourBytes(s.str());
         } else if(instruction == "ld") {
+            std::string reg;
+            std::stringstream ss;
+            std::stringstream t;
             
+            // $ VRENOST SIMBOLA I LITERALA SE UCITAVA U REG
+            if(params[0].at(0) == '$') {
+                reg = resolveRegister(params[1]);
+                std::string value = params[0].substr(1);
+                if(isNumber(value)) {
+                    int literal = canLoadInD(value); 
+                    if(literal != -1) {
+                        std::stringstream temp;
+                        temp << "0x" << std::hex << literal;
+                        temp >> value;
+                        appendZeroToD(value);
+
+                        ss << "0x91" << reg << "00" << value.substr(2, 3);
+                        sections[currentSection]->addFourBytes(ss.str()); 
+                    } else {
+                        //literal veci od 4095 i 0xFFF
+                        if(isHex(value)) {
+                            appendZeroToHex(value);
+                            sections[currentSection]->addToPool(value);
+                        } else {
+                            std::stringstream t;
+                            t << "0x" <<  std::hex << std::stoi(value);
+                            std::string temp;
+                            t >> temp;
+                            appendZeroToHex(temp);
+                            sections[currentSection]->addToPool(temp);
+                        }
+
+                        ss << "0x92" << reg << "F0" << writeOffset();
+                        sections[currentSection]->addFourBytes(ss.str()); 
+                    }
+                } else {
+                    t.str(std::string());
+                    int index = symbolExists(params[0].substr(1));
+                    if(symTable[index]->isGlobal()) {
+                        sections[currentSection]->addToPool("0x00000000");
+                        int lc = sections[currentSection]->getSectionSize() + sections[currentSection]->getPoolSize() - 4;
+
+                        Relocation* rel = new Relocation(currentSectionId, lc, symTable[index]->getNum());
+                        relocationTables[currentSectionId].push_back(rel);
+
+                        ss << "0x92" << reg << "F0" << writeOffset();
+                        sections[currentSection]->addFourBytes(ss.str());
+                    } else {
+                        if(valueOfSymOK(symTable[index]->getValue(), currentLocation) && symTable[index]->getSection() == currentSectionId) {
+                            int value = symTable[index]->getValue() - currentLocation - 4; 
+                            t << std::hex << value;
+
+                            std::string temp;
+                            if(symTable[index]->getValue() - currentLocation - 4 < 0) {
+                                temp = "0x" + t.str().substr(5, 3);
+                            } else {
+                                temp = "0x" + t.str();
+                            }
+
+                            appendZeroToD(temp);
+
+                            std::stringstream ss;
+                            ss << "0x92" << reg << "F0" << temp.substr(2, 3);
+                            sections[currentSection]->addFourBytes(ss.str());  
+                        } else {
+                            t << "0x" << std::hex << symTable[index]->getValue();
+                            std::string temp = t.str();
+                            appendZeroToHex(temp);
+                            sections[currentSection]->addToPool(temp);
+                            int lc = sections[currentSection]->getSectionSize() + sections[currentSection]->getPoolSize() - 4;
+
+                            Relocation* rel = new Relocation(currentSectionId, lc, symTable[index]->getSection());
+                            relocationTables[currentSectionId].push_back(rel);
+
+                            ss << "0x92" << reg << "F0" << writeOffset();
+                            sections[currentSection]->addFourBytes(ss.str());
+                        }
+                    }
+                }
+            } else if(params[0].at(0) == '%') {
+                ss << "0x91" << resolveRegister(params[1]) << resolveRegister(params[0]) << "0000";
+                sections[currentSection]->addFourBytes(ss.str());
+            } else if(params[0].at(0) == '[' && params[1] != "+") {
+                ss << "0x92" << resolveRegister(params[1]) << resolveRegister(params[0].substr(1)) << "0000";
+                sections[currentSection]->addFourBytes(ss.str());
+            } else if(params[0].at(0) == '[' && params[1] == "+") {                
+                std::string reg = resolveRegister(params[0].substr(1));
+                std::string litSim = params[2].substr(0, params[2].size()-1);
+                std::string regUpis = resolveRegister(params[3]);
+
+                if(isNumber(litSim)) {
+                    if(canLoadInD(litSim) != -1) {
+                        appendZeroToD(litSim);
+
+                        ss << "0x92" << regUpis << reg << "0" << litSim.substr(2, 3);
+                        sections[currentSection]->addFourBytes(ss.str());
+                    } else {
+                        std::cout << "ERROR: LITERAL TOO BIG!" << std::endl;
+                        std::cout << line << std::endl;
+                        exit(0);
+                    }
+                } else {
+                    int index = symbolExists(litSim);
+                    if(index != - 1) {
+                        if(symTable[index]->isGlobal()) {
+                            std::cout << "ERROR: SYMBOL VALUE UNKNOWN!" << std::endl;
+                            std::cout << line << std::endl;
+                            exit(0);
+                        } 
+
+                        std::string value = canSymFit(symTable[index]->getValue());
+                        if(value != "") {
+                            appendZeroToD(value);
+
+                            ss << "0x92" << regUpis << reg << "0" << value.substr(2, 3);
+                            sections[currentSection]->addFourBytes(ss.str());
+                        } else {
+                            std::cout << "ERROR: SYMBOL TOO BIG!" << std::endl;
+                            std::cout << line << std::endl;
+                            exit(0);
+                        }
+                    }
+                }
+            } else {
+                reg = resolveRegister(params[1]);
+                std::string value = params[0];
+                if(isNumber(value)) {
+                    int literal = canLoadInD(value); 
+                    if(literal != -1) {
+                        std::stringstream temp;
+                        temp << "0x" << std::hex << literal;
+                        temp >> value;
+                        appendZeroToD(value);
+
+                        ss << "0x92" << reg << "00" << value.substr(2, 3);
+                        sections[currentSection]->addFourBytes(ss.str()); 
+                    } else {
+                        //literal veci od 4095 i 0xFFF
+                        if(isHex(value)) {
+                            appendZeroToHex(value);
+                            sections[currentSection]->addToPool(value);
+                        } else {
+                            std::stringstream t;
+                            t << "0x" <<  std::hex << std::stoi(value);
+                            std::string temp;
+                            t >> temp;
+                            appendZeroToHex(temp);
+                            sections[currentSection]->addToPool(temp);
+                        }
+
+                        ss << "0x92" << reg << "F0" << writeOffset();
+                        sections[currentSection]->addFourBytes(ss.str()); 
+                    }
+                } else {
+                    t.str(std::string());
+                    int index = symbolExists(params[0]);
+                    if(symTable[index]->isGlobal()) {
+                        sections[currentSection]->addToPool("0x00000000");
+                        int lc = sections[currentSection]->getSectionSize() + sections[currentSection]->getPoolSize() - 4;
+
+                        Relocation* rel = new Relocation(currentSectionId, lc, symTable[index]->getNum());
+                        relocationTables[currentSectionId].push_back(rel);
+
+                        ss << "0x92" << reg << "F0" << writeOffset();
+                        sections[currentSection]->addFourBytes(ss.str());
+
+                        ss.str(std::string());
+                        ss << "0x92" << reg << reg << "0000";
+                        sections[currentSection]->addFourBytes(ss.str());
+                    } else {
+                        if(valueOfSymOK(symTable[index]->getValue(), currentLocation) && symTable[index]->getSection() == currentSectionId) {
+                            int value = symTable[index]->getValue() - currentLocation - 4; 
+                            t << std::hex << value;
+
+                            std::string temp;
+                            if(symTable[index]->getValue() - currentLocation - 4 < 0) {
+                                temp = "0x" + t.str().substr(5, 3);
+                            } else {
+                                temp = "0x" + t.str();
+                            }
+
+                            appendZeroToD(temp);
+
+                            std::stringstream ss;
+                            ss << "0x92" << reg << "F0" << temp.substr(2, 3);
+                            sections[currentSection]->addFourBytes(ss.str());
+
+                            ss.str(std::string());
+                            ss << "0x92" << reg << reg << "0000";
+                        } else {
+                            t << "0x" << std::hex << symTable[index]->getValue();
+                            std::string temp = t.str();
+                            appendZeroToHex(temp);
+                            sections[currentSection]->addToPool(temp);
+                            int lc = sections[currentSection]->getSectionSize() + sections[currentSection]->getPoolSize() - 4;
+
+                            Relocation* rel = new Relocation(currentSectionId, lc, symTable[index]->getSection());
+                            relocationTables[currentSectionId].push_back(rel);
+
+                            ss << "0x92" << reg << "F0" << writeOffset();
+                            sections[currentSection]->addFourBytes(ss.str());
+
+                            ss.str(std::string());
+                            ss << "0x92" << reg << reg << "0000"; 
+                        }
+                    }
+                }
+            }
+
         } else if(instruction == "st") {
+            std::stringstream ss;
+            std::string reg = resolveRegister(params[0]);
             
+            if(params[1].at(0) == '$') {
+                std::cout << "ERROR: CAN'T LOAD VALUE INTO VALUE!" << std::endl;
+                std::cout << line << std::endl;
+                exit(0);
+            } else if(params[1].at(0) == '%') {
+                ss << "0x91" << resolveRegister(params[1]) << resolveRegister(params[0]) << "0000";
+                sections[currentSection]->addFourBytes(ss.str());
+                
+            } else if(params[1].at(0) == '[' && params[1].at(params[1].length() - 1) == ']') {
+                ss << "0x80" << resolveRegister(params[1].substr(1, params[1].length() - 2)) << "0" << reg << "000";
+                sections[currentSection]->addFourBytes(ss.str());
+            } else if(params[1].at(0) == '[' && params[2] == "+") {
+                std::string reg1 = resolveRegister(params[1].substr(1));
+                std::string litSim = params[3].substr(0, params[3].length()-1);
+
+                if(isNumber(litSim)) {
+                    if(canLoadInD(litSim) != -1) {
+                        appendZeroToD(litSim);
+
+                        ss << "0x80" << reg1 << "0" << reg << litSim.substr(2, 3);
+                        sections[currentSection]->addFourBytes(ss.str());
+                    } else {
+                        std::cout << "ERROR: LITERAL TOO BIG!" << std::endl;
+                        std::cout << line << std::endl;
+                        exit(0);
+                    }
+                } else {
+                    int index = symbolExists(litSim);
+                    if(index != - 1) {
+                        if(symTable[index]->isGlobal()) {
+                            std::cout << "ERROR: SYMBOL VALUE UNKNOWN!" << std::endl;
+                            std::cout << line << std::endl;
+                            exit(0);
+                        } 
+
+                        std::string value = canSymFit(symTable[index]->getValue());
+                        if(value != "") {
+                            appendZeroToD(value);
+
+                            ss << "0x80" << reg1 << "0" << reg << value.substr(2, 3);
+                            sections[currentSection]->addFourBytes(ss.str());
+                        } else {
+                            std::cout << "ERROR: SYMBOL TOO BIG!" << std::endl;
+                            std::cout << line << std::endl;
+                            exit(0);
+                        }
+                    }
+                }
+            } else {
+                reg = resolveRegister(params[0]);
+                std::string value = params[1];
+                if(isNumber(value)) {
+                    int literal = canLoadInD(value); 
+                    if(literal != -1) {
+                        std::stringstream temp;
+                        temp << "0x" << std::hex << literal;
+                        temp >> value;
+                        appendZeroToD(value);
+
+                        ss << "0x82" << "00" << reg << value.substr(2, 3);
+                        sections[currentSection]->addFourBytes(ss.str()); 
+                    } else {
+                        //literal veci od 4095 i 0xFFF
+                        if(isHex(value)) {
+                            appendZeroToHex(value);
+                            sections[currentSection]->addToPool(value);
+                        } else {
+                            std::stringstream t;
+                            t << "0x" <<  std::hex << std::stoi(value);
+                            std::string temp;
+                            t >> temp;
+                            appendZeroToHex(temp);
+                            sections[currentSection]->addToPool(temp);
+                        }
+
+                        ss << "0x82" << "F0" << reg  << writeOffset();
+                        sections[currentSection]->addFourBytes(ss.str()); 
+                    }
+                } else {
+                    std::stringstream t;
+                    t.str(std::string());
+                    int index = symbolExists(params[1]);
+                    if(symTable[index]->isGlobal()) {
+                        sections[currentSection]->addToPool("0x00000000");
+                        int lc = sections[currentSection]->getSectionSize() + sections[currentSection]->getPoolSize() - 4;
+
+                        Relocation* rel = new Relocation(currentSectionId, lc, symTable[index]->getNum());
+                        relocationTables[currentSectionId].push_back(rel);
+
+                        ss << "0x82" << "F0" << reg << writeOffset();
+                        sections[currentSection]->addFourBytes(ss.str());
+                    } else {
+                        if(valueOfSymOK(symTable[index]->getValue(), currentLocation) && symTable[index]->getSection() == currentSectionId) {
+                            int value = symTable[index]->getValue() - currentLocation - 4; 
+                            t << std::hex << value;
+
+                            std::string temp;
+                            if(symTable[index]->getValue() - currentLocation - 4 < 0) {
+                                temp = "0x" + t.str().substr(5, 3);
+                            } else {
+                                temp = "0x" + t.str();
+                            }
+
+                            appendZeroToD(temp);
+
+                            std::stringstream ss;
+                            ss << "0x82" << "F0" << reg  << temp.substr(2, 3);
+                            sections[currentSection]->addFourBytes(ss.str());
+                        } else {
+                            t << "0x" << std::hex << symTable[index]->getValue();
+                            std::string temp = t.str();
+                            appendZeroToHex(temp);
+                            sections[currentSection]->addToPool(temp);
+                            int lc = sections[currentSection]->getSectionSize() + sections[currentSection]->getPoolSize() - 4;
+
+                            Relocation* rel = new Relocation(currentSectionId, lc, symTable[index]->getSection());
+                            relocationTables[currentSectionId].push_back(rel);
+
+                            ss << "0x82" << "F0" << reg << writeOffset();
+                            sections[currentSection]->addFourBytes(ss.str());
+                        }
+                    }
+                }
+            }
         } else if(instruction == "csrrd") {
-            
+            std::stringstream ss;
+            std::string csrReg = std::to_string(getCSR(params[0]));
+            std::string reg = getRegisterNumber(params[1]);
+
+            ss << "0x90" << std::hex << std::stoi(reg) << csrReg << "0000";
+            sections[currentSection]->addFourBytes(ss.str());
         } else if(instruction == "csrwr") {
-            
+            std::stringstream ss;
+            std::string csrReg = std::to_string(getCSR(params[1]));
+            std::string reg = getRegisterNumber(params[0]);
+
+            std::stringstream t;
+            ss << "0x95" << std::hex << std::stoi(reg) << csrReg << "0000";
+            sections[currentSection]->addFourBytes(ss.str());
         } else {
-            
+            std::cout << "INSTRUCTION UNKNOWN!" << std::endl;
+            exit(0);
         }
         currentLocation += 4;
     }
@@ -408,15 +964,103 @@ void Assembler::printSymbolTable() {
 bool Assembler::isNumber(std::string s) {
     s.erase(std::remove(s.begin(), s.end(), '_'), s.end());
     s.erase(std::remove(s.begin(), s.end(), '-'), s.end());
-    return !std::regex_match(s, std::regex("^[A-Za-z]+$"));
+    return !std::regex_match(s, std::regex("^[A-Za-z]+[0-9]*$"));
 }
 
 bool Assembler::literalTooBig(std::string num) {
     if (num.find('x') != std::string::npos) { 
-        return num.length() > 5;
+        return num.length() > 10;
+    } 
+    return false;
+}
+
+int Assembler::canFitIn(std::string num, int locationCounter) {
+    int n;
+    // std::cout << "Pre: " + num << std::endl;
+    if(num.find('x') != std::string::npos) {
+        n = std::stoul(num, nullptr, 16);
     } else {
-        return std::stoi(num) > 4095;
+        n = std::stoi(num);
     }
+
+    // std::cout << "Posle: " + std::to_string(n) << std::endl;
+    if(abs(locationCounter - n) < 2047) {
+        return n-locationCounter;
+    }
+    else
+        return -1;
+}
+
+int Assembler::canJmpInD(std::string value) {
+    int n;
+    // std::cout << "Pre: " + num << std::endl;
+    if(value.find('x') != std::string::npos) {
+        n = std::stoul(value, nullptr, 16);
+    } else {
+        n = std::stoi(value);
+    }
+
+    // std::cout << "Posle: " + std::to_string(n) << std::endl;
+    if(abs(n) < 2047) {
+        return n;
+    }
+    else
+        return -1;
+}
+
+int Assembler::canLoadInD(std::string value) {
+    // std::cout << value << std::endl;
+
+    int n = -1;
+    // std::cout << "Pre: " + num << std::endl;
+    if(value.find('x') != std::string::npos) {
+        if(value.length() <= 5) 
+            n = std::stoul(value, nullptr, 16);
+        else 
+            return -1;
+    } else {
+        n = std::stoi(value);
+        if(n > 4095)
+            return -1;
+    }
+
+    // std::cout << "Posle: " + std::to_string(n)<< std::endl;
+    return n;
+}
+
+std::string Assembler::canSymFit(int value) {
+    if(value <= 4095) {
+        std::stringstream ss;
+        ss << "0x" << std::hex << value;
+        return ss.str();
+    }
+    
+    return "";
+}
+
+int Assembler::getCSR(std::string value) {
+    if(value == "%status") {
+        return 0;
+    } else if(value == "%handler") {
+        return 1;
+    } else {
+        return 2;
+    }
+}
+
+std::string Assembler::resolveRegister(std::string reg) {
+    std::stringstream t;
+    if (reg.substr(1) == "pc"){
+        t << std::hex << 15;
+    }
+    else if (reg.substr(1) == "sp"){
+        t << std::hex << 14;
+    }
+    else{
+        t << std::hex << std::stoi(getRegisterNumber(reg));
+    }
+
+    return t.str();
 }
 
 bool Assembler::isHex(std::string num) {
@@ -424,8 +1068,16 @@ bool Assembler::isHex(std::string num) {
 }
 
 void Assembler::appendZeroToHex(std::string &num) {
+    if(num.length() < 10) {
+        num.insert(2, 10 - num.length(), '0');
+    }
+}
+
+void Assembler::appendZeroToD(std::string &num) {
+    // std::cout << "Pre: " + num << std::endl;
     if(num.length() < 5) {
-        num.insert (2, 10 - num.length() , '0');
+        num.insert(2, 5 - num.length(), '0');
+        // std::cout << "Posle: " + num << std::endl;
     } 
 }
 
@@ -437,6 +1089,14 @@ std::string Assembler::getRegisterNumber(std::string reg) {
     }
 }
 
+bool Assembler::valueOfSymOK(int value, int locationCounter) {
+    // std::cout << locationCounter << std::endl;
+    if((value - locationCounter) < 2047) {
+        return true;
+    }
+    return false;
+}
+
 std::string Assembler::writeOffset() {
     int offs = sections[currentSection]->getSectionSize() + (sections[currentSection]->getPoolSize() - 4) - currentLocation - 4;
     std::stringstream s;
@@ -446,4 +1106,57 @@ std::string Assembler::writeOffset() {
         temp.insert (0, 3 - temp.length(), '0');
     }
     return temp;
+}
+
+void Assembler::printRelocationTables() {
+    for (const auto& pair : relocationTables) {
+        std::cout << "rel.sec" + std::to_string(pair.first)<< std::endl;
+        std::cout << "Section  Offset  Value" << std::endl;
+        std::vector<Relocation*> relokacije = pair.second;
+        for(int i = 0; i < relokacije.size(); i++) {
+            std::cout << relokacije.at(i)->toString() << std::endl;
+        }
+        std::cout << "\n";
+    }
+}
+
+void Assembler::writeInOutputFile() {
+    std::ofstream outfile ("../.o/" + name);
+
+    outfile << name << std::endl;
+    std::vector<std::string> sectionNames;
+    sectionNames.push_back("UND");
+
+    for(int i = 0; i<symTable.size(); i++) {
+        if(symTable[i]->getType() == 1)
+            sectionNames.push_back(symTable[i]->getName());
+    }
+
+    outfile << sections.size()-1 << std::endl; 
+    for(int i = 1; i < sectionNames.size(); i++) {
+        sections[i]->addr.insert( sections[i]->addr.end(), sections[i]->pool.begin(), sections[i]->pool.end());
+        std::cout << sections[i]->addr.size() << std::endl;
+        std::cout << sections[i]->getPoolSize() << std::endl;
+        if(sections[i]->addr.size() > 0) {
+            outfile << std::to_string(sectionIds[i-1]) + "\t" + sectionNames[i] + "\t" + std::to_string(sections[i]->addr.size()) << std::endl;  
+            for(int j = 0; j < sections[i]->addr.size(); j++)
+                outfile << sections[i]->addr[j];  
+            outfile << std::endl;
+        }
+    }
+
+    outfile << std::endl;
+
+    for (const auto& pair : relocationTables) {
+        std::vector<Relocation*> relokacije = pair.second;
+        if(relokacije.size() > 0) {
+            outfile << std::to_string(pair.first) << std::endl;
+            for(int i = 0; i < relokacije.size(); i++) {
+                outfile << relokacije.at(i)->toString() << std::endl;
+            }
+            outfile << std::endl;
+        }
+    }
+
+    outfile.close();
 }
