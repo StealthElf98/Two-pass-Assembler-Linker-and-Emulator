@@ -8,7 +8,6 @@ Parser::Parser(std::string inputFile) {
     std::string line;
     std::ifstream myfile("../tests/" + inputFile);
 
-    std::cout<<inputFile << std::endl;
     while (std::getline(myfile, line))
         ++numOfLines;
 

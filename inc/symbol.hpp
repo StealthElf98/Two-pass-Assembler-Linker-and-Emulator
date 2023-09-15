@@ -21,8 +21,12 @@ private:
     int section;
     std::string name;
 public:
+    std::string sectionForLinker = "";
+    unsigned int valueForLinker = 0;
     static int globalNum;
+    static int globalNumForLinker;
     Symbol(int value, Type type, int section, std::string name);
+    Symbol(unsigned int value, std::string section, std::string name);
     ~Symbol();
     int getNum();
     int getValue();

@@ -58,6 +58,7 @@ private:
     std::string resolveRegister(std::string reg);
     std::string canSymFit(int value);
     int getCSR(std::string value);
+    std::string getNameFromSymTable(std::string line);
     void writeInOutputFile();
 public:
     void assemble(std::vector<std::string>& allLines);

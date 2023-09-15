@@ -28,5 +28,13 @@ handle_terminal:
 handle_software:
     call isr_software
     jmp finish
+.section math
+    push %r2
+    ld [%sp + 0x08], %r1
+    ld [%sp + 0x0C], %r2
+fake_math:
+    add %r2, %r1 # r1 used for the result
+    pop %r2
+    ret
 
 .end

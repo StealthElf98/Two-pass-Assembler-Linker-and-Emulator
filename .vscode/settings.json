@@ -54,7 +54,10 @@
         "xfunctional": "cpp",
         "xhash": "cpp",
         "xlocbuf": "cpp",
-        "xlocmes": "cpp"
+        "xlocmes": "cpp",
+        "map": "cpp",
+        "xtree": "cpp",
+        "set": "cpp"
     },
     "C_Cpp.errorSquiggles": "disabled"
 }

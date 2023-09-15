@@ -6,6 +6,7 @@
 #include <regex>
 #include <algorithm>
 #include <fstream>
+#include <unordered_map>
 #include "../inc/assembler.hpp"
 #include "../inc/section.hpp"
 
@@ -225,6 +226,19 @@ void Assembler::checkDirective(std::string line, Pass pass) {
 void Assembler::checkInstruction(std::string line, Pass pass) {
     if(pass == FIRST) {
         currentLocation += 4;
+        line.erase(remove(line.begin(), line.end(), ','), line.end());
+        std::stringstream ssin(line);
+        std::string instruction;
+        ssin >> instruction;
+        if(instruction == "ld") {
+            std::string temp;
+            ssin >> temp;
+            if(temp.at(0) != '0' && temp.at(0) != '%' && temp.at(0) != '$' && temp.at(0) != '[') {
+                currentLocation += 4;
+            }
+        } else if(instruction == "iret") {
+                currentLocation += 4;
+        }
     } else {
         std::string instruction;
         std::vector<std::string> params;
@@ -616,9 +630,10 @@ void Assembler::checkInstruction(std::string line, Pass pass) {
                             appendZeroToD(temp);
 
                             std::stringstream ss;
-                            ss << "0x92" << reg << "F0" << temp.substr(2, 3);
+                            ss << "0x91" << reg << "F0" << temp.substr(2, 3);
                             sections[currentSection]->addFourBytes(ss.str());  
-                        } else {
+                        } 
+                        else {
                             t << "0x" << std::hex << symTable[index]->getValue();
                             std::string temp = t.str();
                             appendZeroToHex(temp);
@@ -723,27 +738,27 @@ void Assembler::checkInstruction(std::string line, Pass pass) {
                         ss.str(std::string());
                         ss << "0x92" << reg << reg << "0000";
                         sections[currentSection]->addFourBytes(ss.str());
+                        currentLocation += 4; 
                     } else {
-                        if(valueOfSymOK(symTable[index]->getValue(), currentLocation) && symTable[index]->getSection() == currentSectionId) {
-                            int value = symTable[index]->getValue() - currentLocation - 4; 
-                            t << std::hex << value;
+                        //ZA POPRAVITI
+                        // if(valueOfSymOK(symTable[index]->getValue(), currentLocation) && symTable[index]->getSection() == currentSectionId) {
+                        //     int value = symTable[index]->getValue() - currentLocation - 4; 
+                        //     t << std::hex << value;
 
-                            std::string temp;
-                            if(symTable[index]->getValue() - currentLocation - 4 < 0) {
-                                temp = "0x" + t.str().substr(5, 3);
-                            } else {
-                                temp = "0x" + t.str();
-                            }
+                        //     std::string temp;
+                        //     if(symTable[index]->getValue() - currentLocation - 4 < 0) {
+                        //         temp = "0x" + t.str().substr(5, 3);
+                        //     } else {
+                        //         temp = "0x" + t.str();
+                        //     }
 
-                            appendZeroToD(temp);
+                        //     appendZeroToD(temp);
 
-                            std::stringstream ss;
-                            ss << "0x92" << reg << "F0" << temp.substr(2, 3);
-                            sections[currentSection]->addFourBytes(ss.str());
-
-                            ss.str(std::string());
-                            ss << "0x92" << reg << reg << "0000";
-                        } else {
+                        //     std::stringstream ss;
+                        //     ss << "0x92" << reg << "F0" << temp.substr(2, 3);
+                        //     sections[currentSection]->addFourBytes(ss.str());
+                        // } 
+                        // else {
                             t << "0x" << std::hex << symTable[index]->getValue();
                             std::string temp = t.str();
                             appendZeroToHex(temp);
@@ -758,7 +773,9 @@ void Assembler::checkInstruction(std::string line, Pass pass) {
 
                             ss.str(std::string());
                             ss << "0x92" << reg << reg << "0000"; 
-                        }
+                            sections[currentSection]->addFourBytes(ss.str());
+                            currentLocation += 4;
+                        // }
                     }
                 }
             }
@@ -826,7 +843,7 @@ void Assembler::checkInstruction(std::string line, Pass pass) {
                         temp >> value;
                         appendZeroToD(value);
 
-                        ss << "0x82" << "00" << reg << value.substr(2, 3);
+                        ss << "0x80" << "00" << reg << value.substr(2, 3);
                         sections[currentSection]->addFourBytes(ss.str()); 
                     } else {
                         //literal veci od 4095 i 0xFFF
@@ -873,7 +890,7 @@ void Assembler::checkInstruction(std::string line, Pass pass) {
                             appendZeroToD(temp);
 
                             std::stringstream ss;
-                            ss << "0x82" << "F0" << reg  << temp.substr(2, 3);
+                            ss << "0x80" << "F0" << reg  << temp.substr(2, 3);
                             sections[currentSection]->addFourBytes(ss.str());
                         } else {
                             t << "0x" << std::hex << symTable[index]->getValue();
@@ -904,7 +921,7 @@ void Assembler::checkInstruction(std::string line, Pass pass) {
             std::string reg = getRegisterNumber(params[0]);
 
             std::stringstream t;
-            ss << "0x95" << std::hex << std::stoi(reg) << csrReg << "0000";
+            ss << "0x94" << std::hex << std::stoi(reg) << csrReg << "0000";
             sections[currentSection]->addFourBytes(ss.str());
         } else {
             std::cout << "INSTRUCTION UNKNOWN!" << std::endl;
@@ -1120,6 +1137,22 @@ void Assembler::printRelocationTables() {
     }
 }
 
+std::string Assembler::getNameFromSymTable(std::string line) {
+    std::stringstream ss(line);
+    std::vector<std::string> params;
+    std::string pom;
+    for(int j = 0; j < 3; j++) {
+        ss >> pom;
+        params.push_back(pom);
+    } 
+   
+    int n = std::stoi(pom);
+    for(int i = 0; i < symTable.size(); i++) {
+        if(symTable[i]->getNum() == n) 
+            return symTable[i]->getName();
+    } 
+}
+
 void Assembler::writeInOutputFile() {
     std::ofstream outfile ("../.o/" + name);
 
@@ -1138,7 +1171,7 @@ void Assembler::writeInOutputFile() {
         std::cout << sections[i]->addr.size() << std::endl;
         std::cout << sections[i]->getPoolSize() << std::endl;
         if(sections[i]->addr.size() > 0) {
-            outfile << std::to_string(sectionIds[i-1]) + "\t" + sectionNames[i] + "\t" + std::to_string(sections[i]->addr.size()) << std::endl;  
+            outfile << std::to_string(sectionIds[i-1]) + "\t" + sectionNames[i] + "\t" + std::to_string(sections[i]->addr.size()) + "\t";  
             for(int j = 0; j < sections[i]->addr.size(); j++)
                 outfile << sections[i]->addr[j];  
             outfile << std::endl;
@@ -1147,12 +1180,40 @@ void Assembler::writeInOutputFile() {
 
     outfile << std::endl;
 
+    int tempSec = 0; 
+    outfile << symTable.size()-1 << std::endl;
+    for(int i = 1; i < symTable.size(); i++) {
+        outfile << symTable[i]->getName() << "\t";
+        if(symTable[i]->getType() == 1) 
+            tempSec += 1;
+        outfile << sectionNames.at(tempSec) << "\t";
+        std::string tempString = (symTable[i]->getType() == 0) ? "NO" : "SCTN";
+        outfile << tempString + "\t";
+        outfile << symTable[i]->getValue() << "\t";
+        tempString = (symTable[i]->getBind() == 0) ? "LOC" : "GLOB";
+        outfile << tempString + "\t";
+        outfile << symTable[i]->getNum() << std::endl;
+    }
+
+    outfile << std::endl;
+    for (const auto& pair : relocationTables) {
+        // std::cout << "VELICINA JE: " << pair.first + " " << pair.second.size() << std::endl;
+        if(pair.second.size() == 0) {
+            relocationTables.erase(pair.first);
+            break;
+        }
+    }
+    int size = relocationTables.size() == 0 ? 0 : relocationTables.size(); 
+    outfile << size << std::endl;
     for (const auto& pair : relocationTables) {
         std::vector<Relocation*> relokacije = pair.second;
+        std::string ime = symTable.at(pair.first)->getName();
         if(relokacije.size() > 0) {
-            outfile << std::to_string(pair.first) << std::endl;
+            outfile << ime << std::endl;
+            outfile << relokacije.size() << std::endl;
             for(int i = 0; i < relokacije.size(); i++) {
-                outfile << relokacije.at(i)->toString() << std::endl;
+                outfile << relokacije.at(i)->toString();
+                outfile << "\t" + getNameFromSymTable(relokacije.at(i)->toString()) << std::endl;
             }
             outfile << std::endl;
         }

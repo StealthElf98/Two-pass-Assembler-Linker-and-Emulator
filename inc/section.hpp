@@ -7,11 +7,14 @@
 
 class Section {
 private:
+public:
+    unsigned int startAddr = 0; // samo za linker
     std::string name;
     int sectionSize;
-public:
+    std::string mergedAddresses = "";
     std::vector<std::string> addr;
     std::vector<std::string> pool;  
+    std::vector<std::string> whichFile;
     Section(std::string name);
     void addFourBytes(std::string instr);
     void skip(int numOfBytes);
@@ -23,6 +26,10 @@ public:
     int getSectionSize();
     void addToPool(std::string val);
     int getPoolSize();
+    unsigned int getSectionSizeForLinker();
+    void relocate(std::string file, std::string value, int offset);
+    void relocateForSection(std::string file, unsigned int value, int offset);
+    void mergeAddresses();
     ~Section();
 };
 
