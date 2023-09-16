@@ -70,7 +70,7 @@ void Section::relocate(std::string file, std::string value, int offset) {
     
     std::string s = temp[3] + temp[1] + temp[1] + temp[0];
     
-    std::cout << s << std::endl;
+    // std::cout << s << std::endl;
 
     int fileIndex = 0;
     for(int j = 0; j < whichFile.size(); j++) {

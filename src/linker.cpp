@@ -55,47 +55,47 @@ inline std::vector<pair> sortMap(std::map<std::string, unsigned int> mapa) {
     return vec;
 }
 
-int main(int argc, char* argv[]) {
-    std::string inputFile;
-    std::string outputFile;
+// int main(int argc, char* argv[]) {
+//     std::string inputFile;
+//     std::string outputFile;
     
-    Linker* linker = new Linker();
+//     Linker* linker = new Linker();
 
-    if(argv[1] == "-hex") {
-        linker->setHex();
-    }
+//     if(argv[1] == "-hex") {
+//         linker->setHex();
+//     }
 
-    if(argc > 0) {
-        for(int i = 1; i < argc; i++) {
-            std::string arg = (std::string)argv[i];
+//     if(argc > 0) {
+//         for(int i = 1; i < argc; i++) {
+//             std::string arg = (std::string)argv[i];
 
-            if(arg.substr(0, 6) == "-place") {
-                linker->addToSectionPlaces(getSectionNameFromPlace(arg), getAddressFromPlace(arg));
-            } else if(isOutpuFile(arg)) {
-                linker->outputFileName = arg.substr(0, arg.find(".hex"));
-            } else if(arg.find(".o") != std::string::npos){
-                linker->addToOrder(arg.substr(0, arg.find(".o")));
-            }
-        }
-    } else {
-        std::cout << "ERROR: Missing arguments!" << std::endl;
-    }
+//             if(arg.substr(0, 6) == "-place") {
+//                 linker->addToSectionPlaces(getSectionNameFromPlace(arg), getAddressFromPlace(arg));
+//             } else if(isOutpuFile(arg)) {
+//                 linker->outputFileName = arg.substr(0, arg.find(".hex"));
+//             } else if(arg.find(".o") != std::string::npos){
+//                 linker->addToOrder(arg.substr(0, arg.find(".o")));
+//             }
+//         }
+//     } else {
+//         std::cout << "ERROR: Missing arguments!" << std::endl;
+//     }
 
-    for(int i = 0; i < linker->order.size(); i++) {
-        std::string file= "../.o/" + linker->order[i] + ".o";
-        if(!fileExists(file)) {
-            std::cout << "ERROR: Missing " + linker->order[i] + ".o"<< std::endl;
-            exit(0);
-        }
-    }
+//     for(int i = 0; i < linker->order.size(); i++) {
+//         std::string file= "../.o/" + linker->order[i] + ".o";
+//         if(!fileExists(file)) {
+//             std::cout << "ERROR: Missing " + linker->order[i] + ".o"<< std::endl;
+//             exit(0);
+//         }
+//     }
 
-    linker->mapSections();
-    linker->createSymTable();
-    linker->fixRelocations();
-    linker->writeToHex();
+//     linker->mapSections();
+//     linker->createSymTable();
+//     linker->fixRelocations();
+//     linker->writeToHex();
 
-    return 0;
-}
+//     return 0;
+// }
 
 
 void Linker::mapSections() {
@@ -438,22 +438,21 @@ void Linker::writeToHex() {
             if(k % 8 == 0) {
                 ss << std::hex << sections[i]->startAddr + count*8;
                 outfile << std::endl;
-                outfile << ss.str() << ": ";
+                std::string adresa = ss.str();
+                transform(adresa.begin(), adresa.end(), adresa.begin(), ::toupper);
+                outfile << adresa << ": ";
                 ss.str(std::string());
                 count++;
             }
             std::string bajt = wholeSection.substr(k*2, 2);
+            transform(bajt.begin(), bajt.end(), bajt.begin(), ::toupper);
             outfile << bajt + " "; 
         }
         if(i < sections.size() - 1){
             if(sections[i]->startAddr + sections[i]->getSectionSizeForLinker() == sections[i+1]->startAddr) {
                 //nista
             } else {
-                if(i == sections.size()-1) 
-                    outfile << std::endl;
-                else 
-                    outfile  << std::endl << "...";
-                
+                outfile << std::endl;
             }
         } 
         

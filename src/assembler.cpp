@@ -261,8 +261,9 @@ void Assembler::checkInstruction(std::string line, Pass pass) {
             sections[currentSection]->addFourBytes("0x10000000");
         } else if(instruction == "iret") {
             //pop pc; pop status;
-            sections[currentSection]->addFourBytes("0x93FE0004");
-            sections[currentSection]->addFourBytes("0x970E0004");
+            sections[currentSection]->addFourBytes("0x960E0004");
+            sections[currentSection]->addFourBytes("0x93FE0008");
+            currentLocation += 4;
         } else if(instruction == "ret") {
             // 93(oc) F(pc) E(sp) 0(ne koristi se) 004(disp za sp)
             sections[currentSection]->addFourBytes("0x93FE0004");

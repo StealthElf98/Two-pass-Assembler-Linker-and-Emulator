@@ -33,7 +33,7 @@ my_start:
     ld $11, %r1
     push %r1
     call mathSub
-    st %r1, [%sp + 0x0C]
+    st %r1, value4
 
     ld $5, %r1
     push %r1
@@ -69,8 +69,8 @@ value3:
 value4:
 .word 0
 value5:
-value6:
 .word 0
+value6:
 .word 0
 value7:
 .word 0
