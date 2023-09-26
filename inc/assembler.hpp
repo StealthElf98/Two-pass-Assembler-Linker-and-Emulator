@@ -4,8 +4,8 @@
 #include <string>
 #include <vector>
 #include <unordered_map>
-#include "../inc/relocationtable.hpp"
 #include "../inc/symbol.hpp"
+#include "../inc/relocation.hpp"
 #include "../inc/section.hpp"
 
 enum Instructions {
@@ -28,7 +28,6 @@ private:
     std::vector<int> sectionIds;
     std::vector<Symbol*> symTable;
     std::unordered_map<int, std::vector<Relocation*>> relocationTables;
-    // std::vector<RelocationTable*> relocationTables;
     std::vector<Section*> sections;
     Pass pass;
     bool stopAssembling;

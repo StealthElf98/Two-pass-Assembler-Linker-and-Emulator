@@ -24,7 +24,7 @@ void Section::skip(int numOfBytes) {
 }
 
 void Section::printSection() {
-    std::cout << "SECTION " + getName() << std::endl;
+    std::cout << "SECTION " + getName() + " " << getSectionSize() << std::endl;
     for(int i = 0; i < addr.size(); i++) {
         if(i % 8 == 0) 
             std::cout << std::endl;
@@ -68,11 +68,10 @@ void Section::relocate(std::string file, std::string value, int offset) {
     for(int i = 0; i < 8; i+=2) 
         temp.push_back(value.substr(i, 2));
     
-    std::string s = temp[3] + temp[1] + temp[1] + temp[0];
-    
-    // std::cout << s << std::endl;
+    std::string s = temp[3] + temp[2] + temp[1] + temp[0];
 
     int fileIndex = 0;
+
     for(int j = 0; j < whichFile.size(); j++) {
         if(whichFile[j] == file) {
             fileIndex = j;
@@ -80,13 +79,9 @@ void Section::relocate(std::string file, std::string value, int offset) {
         }
     }
 
-    // std::cout << addr[fileIndex] << std::endl;
-    // std::cout << addr[fileIndex].substr(2*offset, 8) << std::endl;
     for(int k = 0; k < 8; k++) {
         addr[fileIndex].at(2*offset + k) = s[k];
     }
-    // std::cout << addr[fileIndex].substr(2*offset, 8) << std::endl;
-    // std::cout << addr[fileIndex] << std::endl;
 }
 
 void Section::relocateForSection(std::string file, unsigned int value, int offset) {
@@ -109,7 +104,7 @@ void Section::relocateForSection(std::string file, unsigned int value, int offse
     for(int i = 0; i < 8; i+=2) 
         temp.push_back(address.substr(i, 2));
     
-    std::string s = temp[3] + temp[1] + temp[1] + temp[0];
+    std::string s = temp[3] + temp[2] + temp[1] + temp[0];
 
     for(int k = 0; k < 8; k++) {
         addr[fileIndex].at(2*offset + k) = s[k];

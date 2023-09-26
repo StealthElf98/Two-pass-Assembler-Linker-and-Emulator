@@ -36,7 +36,7 @@ int main(int argc, char* argv[]) {
     }
     std::string programName = argv[1];
     if(programName.find(".hex") != std::string::npos) {
-        std::string file= "../.hex/" + programName;
+        std::string file= "../hex/" + programName;
         if(!fileExists(file)) {
             std::cout << "ERROR: Missing " + programName << std::endl;
             exit(0);
@@ -74,17 +74,17 @@ void Emulator::emulate() {
             //push status na stek
             std::string newSP = calculateAddress("E", "00000000", "FFC");
             if(code.find(newSP) == code.end()) {
-                std::cout << "(INT PUSH STATUS)Ubacio adresu " + newSP + " u mem!" << std::endl;
+                // std::cout << "(INT PUSH STATUS)Ubacio adresu " + newSP + " u mem!" << std::endl;
                 code[newSP] = convertFromLittleEndian(csr[0]);
                 sp = newSP;
-                std::cout << "(INT PUSH STATUS)Na: " + newSP + " stavio status: " + code[newSP]<< std::endl;
+                // std::cout << "(INT PUSH STATUS)Na: " + newSP + " stavio status: " + code[newSP]<< std::endl;
             }
             newSP = calculateAddress("E", "00000000", "FFC");
             if(code.find(newSP) == code.end()) {
-                std::cout << "(INT PUSH PC)Ubacio adresu " + newSP + " u mem!" << std::endl;
+                // std::cout << "(INT PUSH PC)Ubacio adresu " + newSP + " u mem!" << std::endl;
                 code[newSP] = convertFromLittleEndian(pc);
                 sp = newSP;
-                std::cout << "(INT PUSH PC)Na: " + newSP + " stavio pc: " + code[newSP]<< std::endl;
+                // std::cout << "(INT PUSH PC)Na: " + newSP + " stavio pc: " + code[newSP]<< std::endl;
             }
             csr[2] = "00000004";
             csr[0] = "00000000";
@@ -92,7 +92,7 @@ void Emulator::emulate() {
         } else if(oc == "20") {
             std::string newSP = calculateAddress("E", "00000000", D);
             if(code.find(newSP) == code.end()) {
-                std::cout << "(CALL PUSH)Ubacio adresu " + newSP + " u mem!" << std::endl;
+                // std::cout << "(CALL PUSH)Ubacio adresu " + newSP + " u mem!" << std::endl;
                 code[newSP] = convertFromLittleEndian(pc);
                 sp = newSP;
             }
@@ -103,25 +103,25 @@ void Emulator::emulate() {
             std::string newSP = calculateAddress("E", "00000000", "FFC");
             code[newSP] = convertFromLittleEndian(pc);
             sp = newSP;
-            std::cout << "(CALL PUSH)Na: " + newSP + " stavio PC: " + code[newSP]<< std::endl;
+            // std::cout << "(CALL PUSH)Na: " + newSP + " stavio PC: " + code[newSP]<< std::endl;
 
             std::string value = code[calculateAddress(gprA, gprB, D)];
             pc = convertFromLittleEndian(value);
-            std::cout << "(CALL) PC= " + pc + " u mem!" << std::endl;
+            // std::cout << "(CALL) PC= " + pc + " u mem!" << std::endl;
         } else if(oc[0] == '3') {
             std::string regB = getValueFromReg(gprB);
             std::string regC = getValueFromReg(gprC);
-            int rgB = std::stoul(getValueFromReg(gprB), nullptr, 16); 
-            int rgC = std::stoul(getValueFromReg(gprC), nullptr, 16); 
+            unsigned int rgB = std::stoul(getValueFromReg(gprB), nullptr, 16); 
+            unsigned int rgC = std::stoul(getValueFromReg(gprC), nullptr, 16); 
 
-            std::cout << "(B) regB=" + regB + " regC=" + regC << std::endl;
+            // std::cout << "(B) regB=" + regB + " regC=" + regC << std::endl;
             if(oc[1] == '0') {
                 pc = calculateAddress(gprA, "00000000", D);
             } else if(oc[1] == '1') {
                 if(rgB == rgC) {
                     pc = calculateAddress(gprA, "00000000", D);
                     
-                    std::cout << "(BEQ) PC= " + pc << std::endl;
+                    // std::cout << "(BEQ) PC= " + pc << std::endl;
                 }
             } else if(oc[1] == '2') {
                 if(rgB != rgC) {
@@ -151,13 +151,11 @@ void Emulator::emulate() {
                 }
             }
         } else if(oc == "40") {
-            int indexB = std::stoul(gprB, nullptr, 16);
-            int indexC = std::stoul(gprC, nullptr, 16);
             std::string regB = getValueFromReg(gprB);
             std::string regC = getValueFromReg(gprC);
 
-            regs[indexB] = regC;
-            regs[indexC] = regB;
+            setRegisterValue(gprB, regC);
+            setRegisterValue(gprC, regB);
         } else if(oc[0] == '5') {
             unsigned int rgB = std::stoul(getValueFromReg(gprB), nullptr, 16); 
             unsigned int rgC = std::stoul(getValueFromReg(gprC), nullptr, 16);
@@ -178,15 +176,15 @@ void Emulator::emulate() {
             std::string temp = ss.str();
             transform(temp.begin(), temp.end(), temp.begin(), ::toupper);
 
-            std::cout << "Nakon operacije reg" + gprA +  "= " + temp << std::endl; 
+            // std::cout << "Nakon operacije reg" + gprA +  "= " + temp << std::endl; 
             setRegisterValue(gprA, temp);
         } else if(oc[0] == '6') {
-            unsigned int rgB = std::stoul(getValueFromReg(gprB), nullptr, 16); 
-            unsigned int rgC = std::stoul(getValueFromReg(gprC), nullptr, 16);
-            unsigned int rgA = 0;
+            int rgB = std::stoul(getValueFromReg(gprB), nullptr, 16); 
+            int rgC = std::stoul(getValueFromReg(gprC), nullptr, 16);
+            int rgA = 0;
 
             if(oc[1] == '0') {
-                rgA = ~rgB;
+                rgA = ~rgB; 
             } else if(oc[1] == '1') {
                 rgA = rgB & rgC;
             } else if(oc[1] == '2') {
@@ -197,7 +195,7 @@ void Emulator::emulate() {
 
             std::stringstream ss;
             ss << std::hex << rgA;
-            std::string temp = ss.str();
+            std::string temp = makeFourBytes(ss.str());
             transform(temp.begin(), temp.end(), temp.begin(), ::toupper);
 
             setRegisterValue(gprA, temp);
@@ -214,7 +212,7 @@ void Emulator::emulate() {
 
             std::stringstream ss;
             ss << std::hex << rgA;
-            std::string temp = ss.str();
+            std::string temp = makeFourBytes(ss.str());
             transform(temp.begin(), temp.end(), temp.begin(), ::toupper);
 
             setRegisterValue(gprA, temp);
@@ -224,30 +222,30 @@ void Emulator::emulate() {
             std::string regC = getValueFromReg(gprC);
             
             if(oc[1] == '0') {
-                std::cout << "(STORE) Vrednosti reg: " + regA + " " + regB + " " + D << std::endl;
+                // std::cout << "(STORE) Vrednosti reg: " + regA + " " + regB + " " + D << std::endl;
                 std::string temp = calculateAddress(gprA, gprB, D);
 
                 code[temp] = convertFromLittleEndian(regC);
-                std::cout << "(STORE) Sacuvao: " + regC + " na:" + temp << std::endl;
+                // std::cout << "(STORE) Sacuvao: " + regC + " na:" + temp << std::endl;
             } else if(oc[1] == '2') {
                 std::string temp = code[calculateAddress(gprA, gprB, D)];
                 temp = convertFromLittleEndian(temp);
 
-                std::cout << "(STORE) Prvi temp" + temp << std::endl;
+                // std::cout << "(STORE) Prvi temp" + temp << std::endl;
 
                 code[temp] = convertFromLittleEndian(makeFourBytes(regC));
-                std::cout << "(STORE) Sacuvao: " + regC + " na:" + temp << std::endl;
+                // std::cout << "(STORE) Sacuvao: " + regC + " na:" + temp << std::endl;
             } else if(oc[1] == '1') { //push
                 std::string newSP = calculateAddress(gprA, "00000000", D);
                 if(code.find(newSP) == code.end()) {
-                    std::cout << "(PUSH)Ubacio adresu " + newSP + " u mem!" << std::endl;
+                    // std::cout << "(PUSH)Ubacio adresu " + newSP + " u mem!" << std::endl;
                     code[newSP] = "00000000";
                 }
                 sp = newSP;
                 setRegisterValue(gprA, newSP);
 
                 code[newSP] = convertFromLittleEndian(regC);
-                std::cout << "(PUSH)Adresa: " + newSP + " vrednost: " +  code[newSP] << std::endl;
+                // std::cout << "(PUSH)Adresa: " + newSP + " vrednost: " +  code[newSP] << std::endl;
             } 
         } else if(oc[0] == '9') {
             std::string regA = getValueFromReg(gprA);
@@ -261,18 +259,18 @@ void Emulator::emulate() {
                 std::string value = calculateAddress("00000000", gprB, D);
                 setRegisterValue(gprA, makeFourBytes(value));
 
-                std::cout << "(LOAD) reg" + gprA + " vrednost: " + getValueFromReg(gprA) << std::endl;
+                // std::cout << "(LOAD) reg" + gprA + " vrednost: " + getValueFromReg(gprA) << std::endl;
             } else if(oc[1] == '2') {
                 std::string value = calculateAddress(gprB, gprC, D);
                 value = convertFromLittleEndian(code[value]);
                 if(gprA == "E") {
                     if(code.find(value) == code.end()) {
-                        std::cout << "Ubacio adresu " + value + " u mem!" << std::endl;
+                        // std::cout << "Ubacio adresu " + value + " u mem!" << std::endl;
                         code[value] = "00000000";
                     }
                     setRegisterValue(gprA, value);
                 } else {
-                    std::cout << "(LOAD) reg" + gprA + "<="<< value << std::endl;
+                    // std::cout << "(LOAD) reg" + gprA + "<="<< value << std::endl;
                     setRegisterValue(gprA, value);
                 }
             } else if(oc[1] == '3') { //pop
@@ -280,23 +278,41 @@ void Emulator::emulate() {
                     code[sp] = "00000000";
                 }
                 std::string value = convertFromLittleEndian(code[sp]);
-                std::cout << "Vrednost za pop: " + code[sp] << std::endl;
+                // std::cout << "Vrednost za pop: " + code[sp] << std::endl;
                 setRegisterValue(gprA, value);
-                std::cout << "(POP)Izbacio: " + value << std::endl;
+                // std::cout << "(POP)Izbacio: " + value << std::endl;
                 
                 value = calculateAddress("00000000", gprB, D);
-                std::cout << "(POP)SP= " + value + " posle pop-a" << std::endl;
+                // std::cout << "(POP)SP= " + value + " posle pop-a" << std::endl;
                 setRegisterValue(gprB, value);
                 sp = value;
             } else if(oc[1] == '4') {
                 setValueForCSR(gprA, regB);
             } else if(oc[1] == '5') {
+                std::string regA = getValueFromCSR(gprA);
+                std::string regB = getValueFromCSR(gprB);
 
+                unsigned int rgA = std::stoul(getValueFromReg(gprA), nullptr, 16);
+                unsigned int rgB = std::stoul(getValueFromReg(gprB), nullptr, 16);
+                unsigned int off = std::stoul(getValueFromReg(D), nullptr, 16);
+                
+                rgA = rgB | off;
+                std::stringstream ss;
+                ss << std::hex << rgA;
+                std::string value = makeFourBytes(ss.str());
+                setValueForCSR(gprA, value);
             } else if(oc[1] == '6') {
                 std::string value = calculateAddress(gprB, gprC, D);
                 setValueForCSR(gprA, convertFromLittleEndian(code[value]));
             } else if(oc[1] == '7') {
+                std::string regB = getValueFromCSR(gprB);
+                std::string value = convertFromLittleEndian(code[regB]);
 
+                setValueForCSR(gprA, value);
+
+                value = makeFourBytes(calculateAddress("00000000", regB, D));
+                transform(value.begin(), value.end(), value.begin(), ::toupper);
+                setRegisterValue(gprB, value);
             }   
         } else {
 
@@ -316,7 +332,7 @@ void Emulator::printRegisterValues() {
             std::cout << "r" + std::to_string(i) + "=0x" + makeFourBytes(regs[i]) + " ";
     }
     std::cout << "r14=0x" + sp + " ";
-    std::cout << "r15=0x" + pc + " ";
+    std::cout << "r15=0x" + pc + " " << std::endl;
 }
 
 std::string Emulator::makeFourBytes(std::string value) {
@@ -407,7 +423,7 @@ void Emulator::movePC() {
 
 
 void Emulator::readFile(std::string fileName) {
-    std::ifstream file("../.hex/" + fileName);
+    std::ifstream file("../hex/" + fileName);
     std::string line; 
 
     //34 22  

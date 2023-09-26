@@ -55,47 +55,48 @@ inline std::vector<pair> sortMap(std::map<std::string, unsigned int> mapa) {
     return vec;
 }
 
-// int main(int argc, char* argv[]) {
-//     std::string inputFile;
-//     std::string outputFile;
+ int main(int argc, char* argv[]) {
+     std::string inputFile;
+     std::string outputFile;
     
-//     Linker* linker = new Linker();
+     Linker* linker = new Linker();
 
-//     if(argv[1] == "-hex") {
-//         linker->setHex();
-//     }
+     if(argv[1] == "-hex") {
+         linker->setHex();
+     }
 
-//     if(argc > 0) {
-//         for(int i = 1; i < argc; i++) {
-//             std::string arg = (std::string)argv[i];
+     if(argc > 0) {
+         for(int i = 1; i < argc; i++) {
+             std::string arg = (std::string)argv[i];
 
-//             if(arg.substr(0, 6) == "-place") {
-//                 linker->addToSectionPlaces(getSectionNameFromPlace(arg), getAddressFromPlace(arg));
-//             } else if(isOutpuFile(arg)) {
-//                 linker->outputFileName = arg.substr(0, arg.find(".hex"));
-//             } else if(arg.find(".o") != std::string::npos){
-//                 linker->addToOrder(arg.substr(0, arg.find(".o")));
-//             }
-//         }
-//     } else {
-//         std::cout << "ERROR: Missing arguments!" << std::endl;
-//     }
+             if(arg.substr(0, 6) == "-place") {
+                 linker->addToSectionPlaces(getSectionNameFromPlace(arg), getAddressFromPlace(arg));
+             } else if(isOutpuFile(arg)) {
+                 linker->outputFileName = arg.substr(0, arg.find(".hex"));
+             } else if(arg.find(".o") != std::string::npos){
+                 linker->addToOrder(arg.substr(0, arg.find(".o")));
+             }
+         }
+    } else {
+        std::cout << "ERROR: Missing arguments!" << std::endl;
+     }
 
-//     for(int i = 0; i < linker->order.size(); i++) {
-//         std::string file= "../.o/" + linker->order[i] + ".o";
-//         if(!fileExists(file)) {
-//             std::cout << "ERROR: Missing " + linker->order[i] + ".o"<< std::endl;
-//             exit(0);
-//         }
-//     }
+     for(int i = 0; i < linker->order.size(); i++) {
+         std::string file= "../o/" + linker->order[i] + ".o";
+        //  std::cout << file << std::endl;
+         if(!fileExists(file)) {
+            std::cout << "ERROR: Missing " + linker->order[i] + ".o"<< std::endl;
+             exit(0);
+         }
+     }
 
-//     linker->mapSections();
-//     linker->createSymTable();
-//     linker->fixRelocations();
-//     linker->writeToHex();
-
-//     return 0;
-// }
+     linker->mapSections();
+     linker->createSymTable();
+     linker->fixRelocations();
+     linker->writeToHex();
+     std::cout << "FINISHED LINKING!" << std::endl;;
+     return 0;
+ }
 
 
 void Linker::mapSections() {
@@ -105,13 +106,14 @@ void Linker::mapSections() {
         int numLines = 0;
         int numOfSections = 0;
         std::string line;
-        std::ifstream myfile("../.o/" + order[i] + ".o");
+        std::ifstream myfile("../o/" + order[i] + ".o");
 
         while(numLines++ < 2) {
             std::getline(myfile, line);
         }
 
-        numOfSections = std::stoi(line);
+        numOfSections = std::stoi(line); 
+        
         // std::cout << order[i] + " " + line << std::endl;
         // std::cout << "Iz fajla: " + order[i] << numOfSections << std::endl;
         for(int j = 0; j < numOfSections; j++) {
@@ -128,7 +130,7 @@ void Linker::mapSections() {
                 if(temp == 2) {
                     secName = t;
                 } else if(temp == 3) {
-                    secSize = std::stoi(t);
+                    secSize = std::stoi(t); 
                 } else if(temp == 4) {
                     instrs = t;
                 }
@@ -142,7 +144,7 @@ void Linker::mapSections() {
                 sec->addr.push_back(instrs);
                 sec->whichFile.push_back(order[i]);
                 sections.push_back(sec);
-                // std::cout << "Dodao sekciju:" + secName + " iz fajla " + order[i] << std::endl;
+                // std::cout << "Dodao sekciju:" + secName + " iz fajla " + order[i] + " " + sec->addr.back() + "   " + sec->whichFile.back() << std::endl;
             } else {
                 sections[index]->sectionSize += secSize;
                 sections[index]->whichFile.push_back(order[i]);
@@ -207,6 +209,9 @@ void Linker::mapSections() {
             std::cout << sections[k]->getName() + " ending " << sections[k]->startAddr + sections[k]->getSectionSizeForLinker() << std::endl;
             std::cout << sections[k+1]->getName() + " starting " << sections[k+1]->startAddr << std::endl;
             exit(1);
+        } else if(sections[k]->startAddr + sections[k]->getSectionSizeForLinker() > 4294967040) {
+            std::cout << "ERORR! Section " + sections[k]->getName() + " overlaps with mapped registers!"  << std::endl;
+            exit(1);
         }
     }
 
@@ -241,7 +246,7 @@ void Linker::createSymTable() {
         int numOfSections = 0;
         std::string line;
         std::vector<Symbol*> tabela;
-        std::ifstream myfile("../.o/" + order[i] + ".o");
+        std::ifstream myfile("../o/" + order[i] + ".o");
         while(numLines++ < 2) {
             std::getline(myfile, line);
         }
@@ -294,7 +299,7 @@ void Linker::createSymTable() {
                             exit(0); 
                         }
                     } else {
-                        std::cout << "ERROR! Symbol " + params[0] + "already exists in another file!" << std::endl;
+                        std::cout << "ERROR! Symbol " + params[0] + " already exists in another file!" << std::endl;
                         exit(0);
                     }
                 }
@@ -306,33 +311,30 @@ void Linker::createSymTable() {
         }
         // symTables.push_back(tabela);
     }
-
-   
+    // for(int z = 0; z < globalSymTable.size(); z++){
+    //     std::string location = globalSymTable[z]->getType() == 1 ? "SCTN" : "NOTYP";
+    //     std::cout << globalSymTable[z]->getName() + "\t\t" << globalSymTable[z]->valueForLinker << "\t\t" + location + "\t\t" <<  globalSymTable[z]->sectionForLinker + "\t\t" << std::endl;
+    // }
 }
 
 void Linker::fixRelocations() {
-     for(int z = 0; z < globalSymTable.size(); z++){
-        std::string location = globalSymTable[z]->getType() == 1 ? "SCTN" : "NOTYP";
-        std::cout << globalSymTable[z]->getName() + "\t\t" << globalSymTable[z]->valueForLinker << "\t\t" + location + "\t\t" <<  globalSymTable[z]->sectionForLinker + "\t\t" << std::endl;
-    }
-    std::cout << std::endl;
-
     for(int i = 0; i < order.size(); i++) { //kroz svaki fajl
         int numLines = 0;
         int numOfSections = 0;
         std::string line;
         std::vector<Symbol*> tabela;
-        std::ifstream myfile("../.o/" + order[i] + ".o");
+        std::ifstream myfile("../o/" + order[i] + ".o");
+        // std::cout << "U FAJLU: " + order[i] << std::endl;
         while(numLines++ < 2) {
             std::getline(myfile, line);
         }
-        numOfSections = std::stoi(line);
+        numOfSections = std::stoi(line); 
         for(int i = 0; i < numOfSections; i++) {
             std::getline(myfile, line);
         }
         std::getline(myfile, line);
         std::getline(myfile, line);
-        int numOfSymbols = std::stoi(line);
+        int numOfSymbols = std::stoi(line);\
         
         
         while(numOfSymbols-- > 0) {//kroz tabelu simbola u fajlu
@@ -348,7 +350,7 @@ void Linker::fixRelocations() {
             std::getline(myfile, line);
             int numOfRelocations = std::stoi(line);
 
-            std::cout << "Relok za sek: " + sectionName << std::endl;
+            // std::cout << "Relok za sek: " + sectionName << std::endl;
             for(int k = 0; k<numOfRelocations; k++) {
                 std::getline(myfile, line);
                 std::stringstream ss(line);
@@ -417,7 +419,7 @@ void Linker::mergeSections() {
 }
 
 void Linker::writeToHex() {
-    std::ofstream outfile ("../.hex/" + outputFileName + ".hex");
+    std::ofstream outfile ("../hex/" + outputFileName + ".hex");
 
     outfile << "#" + outputFileName + ".hex" << std::endl;
     for(int i =0; i < sections.size(); i++) {
@@ -488,7 +490,7 @@ int Linker::sectionExists(std::string secName) {
         if(sections[i]->getName() == secName) {
             return i;
         }
-    }
+    }	
     return -1;
 }
 
@@ -497,12 +499,12 @@ unsigned int Linker::getStartAddr(std::vector<std::pair<std::string, unsigned in
         if(vec[i].first == section)
             return vec[i].second;
     }
+    return 0;
 }
 
 void Linker::updatedSectionStartAddr(std::vector<std::pair<std::string, unsigned int>> &vec, std::string section, std::string fromFile) {
     int sectionIndex = 0;
     for(int i = 0; i < sections.size(); i++) {
-        // std::cout << sections[i]->getName() + " " << sections[i]->startAddr << std::endl;
         if(sections[i]->getName() == section) {
             sectionIndex = i;
             break;
@@ -511,17 +513,13 @@ void Linker::updatedSectionStartAddr(std::vector<std::pair<std::string, unsigned
 
     std::string instrs;
     for(int i = 0; i < sections[sectionIndex]->whichFile.size(); i++) {
-        // std::cout << sections[sectionIndex]->whichFile[i] + " "<< sections[sectionIndex]->addr[i].length() / 2 << std::endl;
-        // std::cout << sections[sectionIndex]->getName() + " " << sections[sectionIndex]->whichFile[i] + " size: "<< sections[sectionIndex]->whichFile.size() << std::endl;
         if(sections[sectionIndex]->whichFile[i] == fromFile) {
-            // std::cout << "uzeto iz: " + sections[sectionIndex]->whichFile[i] + " " + fromFile << std::endl;
             instrs = sections[sectionIndex]->addr[i];
             break;
         } 
     }
 
     int v = instrs.length() / 2;
-    // std::cout << "Duzina: " << v << std::endl;
     int index = 0;
     for(int i = 0; i < vec.size(); i++) {
         if(vec[i].first == section) {
@@ -530,7 +528,6 @@ void Linker::updatedSectionStartAddr(std::vector<std::pair<std::string, unsigned
         } 
     }
     vec[index].second += v;
-    // std::cout << "Pomerena adresa na: " << vec[index].second << std::endl;
 }
 
 void Linker::setHex() {
@@ -540,7 +537,6 @@ void Linker::setHex() {
 void Linker::addToSectionPlaces(std::string sectionName, std::string address) {
     unsigned int x = std::stoul(address, nullptr, 16);
     sectionPlaces[sectionName] = x;
-    // std::cout << sectionName + ", adresa:" + std::to_string(sectionPlaces[sectionName]) << std::endl;
 }
 
 void Linker::addToOrder(std::string fileName) {

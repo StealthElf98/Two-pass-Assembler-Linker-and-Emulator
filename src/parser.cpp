@@ -29,9 +29,11 @@ int Parser::getNumOfLines() {
 void Parser::parse(std::string inputFile) {
     std::ifstream file("../tests/" + inputFile);
     std::string str; 
-
+	
     while(std::getline(file, str)) {
-        if(!str.empty())
+        std::string l(str); 
+        if(l.length() > 1) {
             allLines.push_back(str.substr(str.find_first_not_of(" ")));
+        }
     }
 }

@@ -15,8 +15,8 @@ std::string Relocation::toString() {
     std::string relocationString;
     std::stringstream ss;
     ss << std::to_string(sectionNum) + "\t";
-    ss << std::to_string(location) + "\t";
-    ss << std::to_string(val);
+    ss << "   "  + std::to_string(location) + "\t";
+    ss << "\t" + std::to_string(val);
 
     relocationString = ss.str();
     return relocationString;

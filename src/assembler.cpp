@@ -33,7 +33,7 @@ void Assembler::assemble(std::vector<std::string>& allLines) {
     writeInOutputFile();
     
     for(int i = 1; i < sections.size(); i++) {
-        std::cout << "Section " + sections[i]->getName() + " size: " + std::to_string(sections[i]->getSectionSize()) << std::endl;
+        // std::cout << "Section " + sections[i]->getName() + " size: " + std::to_string(sections[i]->getSectionSize()) << std::endl;
         sections[i]->printSection();
     }
 
@@ -61,13 +61,14 @@ void Assembler::secondPass(std::vector<std::string>& allLines) {
 }    
 
 void Assembler::checkLine(std::string line, Pass pass) {
+    if(line.empty()) return;
     if(pass == FIRST) {
         if(line[0] == '#') return;
         if(line[0] == '.') {                     // .section, .extern
             checkDirective(line, FIRST);
             return;
         }
-        if(line.find(':') == line.size() - 1) {  // .labela
+        if(line.find(':') != std::string::npos) {  // .labela
             std::string label = line.substr(0, line.find(':'));
             if(symbolExists(label) == -1) {
                 addSymbolToTable(label, currentLocation, currentSectionId, LOC, false);
@@ -641,6 +642,7 @@ void Assembler::checkInstruction(std::string line, Pass pass) {
                             sections[currentSection]->addToPool(temp);
                             int lc = sections[currentSection]->getSectionSize() + sections[currentSection]->getPoolSize() - 4;
 
+                            std::cout << sections[currentSection]->getSectionSize() << " 2LC= " << lc << std::endl;
                             Relocation* rel = new Relocation(currentSectionId, lc, symTable[index]->getSection());
                             relocationTables[currentSectionId].push_back(rel);
 
@@ -741,41 +743,22 @@ void Assembler::checkInstruction(std::string line, Pass pass) {
                         sections[currentSection]->addFourBytes(ss.str());
                         currentLocation += 4; 
                     } else {
-                        //ZA POPRAVITI
-                        // if(valueOfSymOK(symTable[index]->getValue(), currentLocation) && symTable[index]->getSection() == currentSectionId) {
-                        //     int value = symTable[index]->getValue() - currentLocation - 4; 
-                        //     t << std::hex << value;
+                        t << "0x" << std::hex << symTable[index]->getValue();
+                        std::string temp = t.str();
+                        appendZeroToHex(temp);
+                        sections[currentSection]->addToPool(temp);
+                        int lc = sections[currentSection]->getSectionSize() + sections[currentSection]->getPoolSize() - 4;
 
-                        //     std::string temp;
-                        //     if(symTable[index]->getValue() - currentLocation - 4 < 0) {
-                        //         temp = "0x" + t.str().substr(5, 3);
-                        //     } else {
-                        //         temp = "0x" + t.str();
-                        //     }
+                        Relocation* rel = new Relocation(currentSectionId, lc, symTable[index]->getSection());
+                        relocationTables[currentSectionId].push_back(rel);
 
-                        //     appendZeroToD(temp);
+                        ss << "0x92" << reg << "F0" << writeOffset();
+                        sections[currentSection]->addFourBytes(ss.str());
 
-                        //     std::stringstream ss;
-                        //     ss << "0x92" << reg << "F0" << temp.substr(2, 3);
-                        //     sections[currentSection]->addFourBytes(ss.str());
-                        // } 
-                        // else {
-                            t << "0x" << std::hex << symTable[index]->getValue();
-                            std::string temp = t.str();
-                            appendZeroToHex(temp);
-                            sections[currentSection]->addToPool(temp);
-                            int lc = sections[currentSection]->getSectionSize() + sections[currentSection]->getPoolSize() - 4;
-
-                            Relocation* rel = new Relocation(currentSectionId, lc, symTable[index]->getSection());
-                            relocationTables[currentSectionId].push_back(rel);
-
-                            ss << "0x92" << reg << "F0" << writeOffset();
-                            sections[currentSection]->addFourBytes(ss.str());
-
-                            ss.str(std::string());
-                            ss << "0x92" << reg << reg << "0000"; 
-                            sections[currentSection]->addFourBytes(ss.str());
-                            currentLocation += 4;
+                        ss.str(std::string());
+                        ss << "0x92" << reg << reg << "0000"; 
+                        sections[currentSection]->addFourBytes(ss.str());
+                        currentLocation += 4;
                         // }
                     }
                 }
@@ -925,8 +908,8 @@ void Assembler::checkInstruction(std::string line, Pass pass) {
             ss << "0x94" << std::hex << std::stoi(reg) << csrReg << "0000";
             sections[currentSection]->addFourBytes(ss.str());
         } else {
-            std::cout << "INSTRUCTION UNKNOWN!" << std::endl;
-            exit(0);
+
+            std::cout << "INSTRUCTION UNKNOWN1!" + params[0]<< std::endl;
         }
         currentLocation += 4;
     }
@@ -1129,7 +1112,7 @@ std::string Assembler::writeOffset() {
 void Assembler::printRelocationTables() {
     for (const auto& pair : relocationTables) {
         std::cout << "rel.sec" + std::to_string(pair.first)<< std::endl;
-        std::cout << "Section  Offset  Value" << std::endl;
+        std::cout << "Section   Offset      Value" << std::endl;
         std::vector<Relocation*> relokacije = pair.second;
         for(int i = 0; i < relokacije.size(); i++) {
             std::cout << relokacije.at(i)->toString() << std::endl;
@@ -1152,10 +1135,12 @@ std::string Assembler::getNameFromSymTable(std::string line) {
         if(symTable[i]->getNum() == n) 
             return symTable[i]->getName();
     } 
+    
+    return "";
 }
 
 void Assembler::writeInOutputFile() {
-    std::ofstream outfile ("../.o/" + name);
+    std::ofstream outfile ("../o/" + name);
 
     outfile << name << std::endl;
     std::vector<std::string> sectionNames;
@@ -1169,8 +1154,8 @@ void Assembler::writeInOutputFile() {
     outfile << sections.size()-1 << std::endl; 
     for(int i = 1; i < sectionNames.size(); i++) {
         sections[i]->addr.insert( sections[i]->addr.end(), sections[i]->pool.begin(), sections[i]->pool.end());
-        std::cout << sections[i]->addr.size() << std::endl;
-        std::cout << sections[i]->getPoolSize() << std::endl;
+        // std::cout << sections[i]->addr.size() << std::endl;
+        // std::cout << sections[i]->getPoolSize() << std::endl;
         if(sections[i]->addr.size() > 0) {
             outfile << std::to_string(sectionIds[i-1]) + "\t" + sectionNames[i] + "\t" + std::to_string(sections[i]->addr.size()) + "\t";  
             for(int j = 0; j < sections[i]->addr.size(); j++)
