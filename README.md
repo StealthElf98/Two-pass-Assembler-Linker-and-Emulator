@@ -5,5 +5,5 @@ Implemented Two pass assembler, Linker and Emulator
 End result:
 <br>
 <p align="center">
-  <img width="331" alt="emulatorResult" src="https://github.com/StealthElf98/SS_Projekat/assets/89274860/75f949a8-4a05-4b04-9592-24ff230c538e">
+  <img width="664" alt="emulatorResult" src="https://github.com/StealthElf98/SS_Projekat/assets/89274860/7a48ac4b-fe51-479b-876e-b46aa7a1d6f8">
 </p>
